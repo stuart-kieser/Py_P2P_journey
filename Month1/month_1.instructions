@@ -21,3 +21,9 @@ Python Fundamentals:
     how do i create my own modules?
     how are modules used in code?
 
+Python project:
+Create a tenant registar for a building that you are managing
+This registrar must take in the occupants name, last name, cell phone number and booked room number
+this must all be possible through the command line as if it were a running program 
+
+

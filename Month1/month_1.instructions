@@ -24,6 +24,7 @@ Python Fundamentals:
 Python project:
 Create a tenant registar for a building that you are managing
 This registrar must take in the occupants name, last name, cell phone number and booked room number
-this must all be possible through the command line as if it were a running program 
+    max num rooms: 500
+for now this doesnt have to execute in the command line but currently it must be able to run test. 
 
 

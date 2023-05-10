@@ -22,9 +22,12 @@ Python Fundamentals:
     how are modules used in code?
 
 Python project:
+
 Create a tenant registar for a building that you are managing
+
 This registrar must take in the occupants name, last name, cell phone number and booked room number
     max num rooms: 500
-for now this doesnt have to execute in the command line but currently it must be able to run test. 
+
+for now this doesnt have to execute in the command line but currently it must be able to run tests. 
 
 

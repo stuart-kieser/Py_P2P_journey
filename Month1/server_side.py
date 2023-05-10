@@ -26,7 +26,7 @@ class HoldConnection(Server):
     def handle_client(self, conn):
         while True:
             try:
-                data = self.socket_handle.recv(1024).decode()
+                data = conn.recv(1024).decode()
                 if not data:
                     break
 

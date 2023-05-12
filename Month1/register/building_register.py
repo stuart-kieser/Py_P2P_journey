@@ -66,11 +66,22 @@ def find_tenant(attr):
 
 
 def remove_tenant_(fname, lname):
+    removal_list = []
     for tenant in tenants:
         if tenant.fname == fname and tenant.lname == lname:
-            tenant.remove_tenant()
-            print(f"Tenant: {fname, lname}, has been removed")
-            return
+            removal_list.append(tenant)
+    for tenant in removal_list:
+        if len(removal_list) > 1:
+            print("More than one tenant with that name...")
+            num = input("Please enter tenant number: ")
+            if tenant.num == num:
+                tenant.remove_tenant()
+                print(f"Tenant: {fname, lname}, has been removed")
+                return
+            else:
+                tenant.remove_tenant()
+                print(f"Tenant: {fname, lname}, has been removed")
+                return
 
 
 def check_tenant_account(attr):
@@ -80,9 +91,9 @@ def check_tenant_account(attr):
 
 
 Tenant("stuart", "kieser", 171)
-Tenant("n", "f", 909)
+Tenant("nick", "fox", 909)
 
-"""
+
 def create_tenants(number):
     fnames = ["harry", "george", "barry", "larry", "gary", "ben", "greg"]
     lnames = ["harary", "george", "barary", "larary", "garary", "been", "grog"]
@@ -93,4 +104,6 @@ def create_tenants(number):
         num = random.choice(range(500, 1000))
         Tenant(fname, lname, num)
     return tenants
-"""
+
+
+create_tenants(70)

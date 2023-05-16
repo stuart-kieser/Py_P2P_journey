@@ -8,5 +8,10 @@
 {% endfor %}
 {% endif %}
 {% endwith %}
-<p>Welcome {{User}}</p>
+<div>Your account: {{user}}</div>
+<form action="#" method="POST">
+    <input type="email" placeholder="email" value="{{email if email}}">
+    <input type="submit" value="submit">
+</form>
+
 {% endblock %}

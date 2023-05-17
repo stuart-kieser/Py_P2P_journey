@@ -2,21 +2,18 @@ from flask import Flask, redirect, url_for, render_template, request, session, f
 from datetime import timedelta
 from flask_sqlalchemy import SQLAlchemy
 
-
 app = Flask(__name__)
 app.secret_key = "hello"
-app.config["SQLALCHEMY_DATABASE-URI"] = "sqlite://users.sqlite3"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.sqlite3"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.permanent_session_lifetime = timedelta(minutes=5)
-
 
 db = SQLAlchemy(app)
 
 
-# no were moving onto the logic behind it all
 class users(db.Model):
     _id = db.Column("id", db.Integer, primary_key=True)
-    name = db.Column("name", db.String(100))
+    name = db.Column(db.String(100))
     email = db.Column(db.String(20))
 
     def __init__(self, name, email):
@@ -29,9 +26,9 @@ def home():
     return render_template("index.html")
 
 
-@app.route("/test")
+@app.route("/")
 def test():
-    return render_template("new.html")
+    return render_template("index.html")
 
 
 @app.route("/login", methods=["POST", "GET"])
@@ -40,11 +37,21 @@ def login():
         session.permanent = True
         user = request.form["nm"]
         session["user"] = user
+
+        found_user = users.query.filter_by(name=user).first()
+        if found_user:
+            session["email"] = found_user.email
+        else:
+            usr = users(user, "")
+            db.session.add(usr)
+            db.session.commit()
+
         flash("login successful")
         return redirect(url_for("user"))
     else:
         if "user" in session:
             return redirect(url_for("user"))
+
     return render_template("login.html")
 
 
@@ -57,6 +64,9 @@ def user():
         if request.method == "POST":
             email = request.form["email"]
             session["email"] = email
+            found_user = users.query.filter_by(name=user).first()
+            found_user.email = email
+            db.sesssion.commit()
         else:
             if "email" in session:
                 email = session["email"]
@@ -80,3 +90,4 @@ def logout():
 if __name__ == "__main__":
     db.create_all()
     app.run(debug=True)
+    

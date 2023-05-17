@@ -21,4 +21,8 @@ Python web-development:
     how are databases connected?
     how do you connect to your own database?
 
-    
+Python project:
+
+Create a simple blog website. At first create the website that allows 
+users to type a message, this message must be added to a db. 
+No need for accounts yet that is the next stage. 

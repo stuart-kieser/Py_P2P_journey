@@ -1,26 +1,46 @@
-from flask import Flask, redirect, url_for, render_template, request, session, flash
-from datetime import timedelta
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, url_for, request, render_template, session, redirect
 
-# creates instance of an app
+db = []
+# create an app instance
 app = Flask(__name__)
 
 
 @app.route("/")
 def home():
-    return render_template("home.html")
+    return render_template("base.html")
 
 
-@app.route("/public")
-def public():
-    # access database and print the entire thing in order
-    return render_template("public.html")
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        form_data = request.form["str"]
+        db.append(form_data)
+        return redirect(url_for("user_profile", user=form_data))
+    else:
+        return render_template("login.html")
 
 
-@app.route("/database")
-def database():
-    return redirect(url_for("home"))
+@app.route("/users/<user>")
+def user_profile(user):
+    return render_template("user.html")
+
+
+@app.route("/database", methods=["GET"])
+def database_entries():
+    if request.method == "GET":
+        db_data = request.form[str(db)]
+        return render_template("database_entries", db_data=db_data)
 
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+"""
+just a little update, right now, i am able to creat my own db 
+with the list function in python to store data. 
+
+That data is also partially callable to the database url page
+I think i have figer out how the GET method works.
+the error says is cannot understand the request but it does 
+list it so it is being received. 
+"""

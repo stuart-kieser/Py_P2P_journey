@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+
+{% extends "base.html" %}
+{%block body%}
+
+<head>Howdy</head>
+{%for item in form_data.items()%}
+<h1>{{item}}</h1>
+{%endfor%}
+{%endblock%}

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+
+{% extends "base.html" %}
+{%block body%}
+
+<form action="#" method="GET">
+    {%for users in db_data%}
+    {%print(user)%}
+    {%endfor%}
+</form>
+
+{%endblock%}

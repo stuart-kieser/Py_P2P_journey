@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 
 {% extends "base.html" %}
-{%block body%}
+{%block content%}
 
 <form action="#" method="GET">
-    {%for users in db_data%}
-    {%print(user)%}
-    {%endfor%}
+    <p1>{{form_data}}</p1>
 </form>
 
 {%endblock%}

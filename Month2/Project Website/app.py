@@ -3,8 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import text
 
 # this variable, db, is the db for this entire app
-# db = SQLAlchemy()
-db = []
+db = SQLAlchemy()
 
 
 # create an app instance
@@ -13,7 +12,12 @@ app = Flask(__name__)
 db_main = "register.db"
 
 # contains the databse connection string
-# app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///' + db_main
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + db_main
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50))
 
 
 @app.route("/")
@@ -25,7 +29,6 @@ def home():
 def login():
     if request.method == "POST":
         form_data = request.form["str"]
-        db.append(form_data)
         return redirect(url_for("user_profile", user=form_data))
     else:
         return render_template("login.html")
@@ -38,9 +41,8 @@ def user_profile(user):
 
 @app.route("/database", methods=["GET"])
 def database_entries():
-    if request.method == "GET":
-        db = request.args.get("str")
-        return render_template("_db.html", db=db)
+    _data = User.id.query().all()
+    return render_template("_db.html", _data=_data)
 
 
 if __name__ == "__main__":

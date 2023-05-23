@@ -3,8 +3,12 @@
 {% extends "base.html" %}
 {%block content%}
 
-<form action="#" method="GET">
-    <p1>{{form_data}}</p1>
-</form>
+<body>
+    <h1>Data Base:</h1>
+    <h2>
+        {%for users in _data%}
+        <li>{{_data.name}}</li>
+    </h2>
+</body>
 
 {%endblock%}

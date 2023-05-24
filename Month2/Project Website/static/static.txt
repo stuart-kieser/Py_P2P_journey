@@ -1,0 +1,7 @@
+Moving onto static files, these files dont change and stay constant, this includes:
+javascript, and other static files, we can then import or create our own styles in this folder
+static files hold:
+    images
+    custom class
+    javascript
+    possibly videos?

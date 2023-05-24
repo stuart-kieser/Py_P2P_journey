@@ -30,20 +30,22 @@ class Person(Base):
 
     """
     The process for creating columns is, create a python attr such as firstname
-    specify that it is a column and then what data type it could be"""
-    # firstname = Column("firstname", String)
-    # lastname = Column("lastname", String)
-    # gender = Column("gender", CHAR)
-    # age = Column("age", Integer)
+    specify that it is a column and then what data type it could be
+    """
+
+    firstname = Column("firstname", String)
+    lastname = Column("lastname", String)
+    gender = Column("gender", CHAR)
+    age = Column("age", Integer)
 
     """ create object to insert into database, new entries will use this object to be unique"""
 
-    def __init__(self, ssn):  # firstname, lastname, gender, age
+    def __init__(self, ssn, firstname, lastname, gender, age):
         self.ssn = ssn
-        # self.firstname = firstname
-        # self.lastname = lastname
-        # self.gender = gender
-        # self.age = age
+        self.firstname = firstname
+        self.lastname = lastname
+        self.gender = gender
+        self.age = age
 
     # allows us to choose how we print a person or what we see when we call that person
     def __repr__(self):
@@ -104,12 +106,20 @@ session = Session()
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    if request.method == "POST":
-        user = request.form["usr"]
-        usr = Person(user)
-        session.add(usr)
-        session.commit()
     return render_template("home.html")
+
+
+@app.route("/login", methods=["GET"])
+def login():
+    if request.method == "GET":
+        user_ssn = request.form["ssn"]
+        user_name = request.form["usr"]
+        results = session.query(Person.ssn, Person.firstname)
+        if user_name == Person.firstname and user_ssn == Person.ssn:
+            redirect(url_for("user"))
+    else:
+        return render_template("login.html")
+    # come back and look at login authentication
 
 
 @app.route("/database")

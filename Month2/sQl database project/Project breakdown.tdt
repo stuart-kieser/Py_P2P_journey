@@ -1,0 +1,17 @@
+Tenant register app:
+1. Create a flask application that can be used in a building,
+    this web app should be able to add users, remove users, have user move rooms
+2. users should have abilty to login, request maintenance (with text block), request room changes 
+    this request room changes should only show the rooms that are empty or missing one person. 
+3. The app should feature some rudimentary contract system that they must sign, when a user is removed this contract must be removed
+4. A rolling counter of how long the tenant has lived in the building should also be stored in the db 
+
+I think this is a good place to start, i also think ill add styling to the webapp but first i will manage a functioning back and front end. 
+
+What pages may i require:
+Home page
+Register page
+Login page
+User page
+Admin page with more access
+    admin page should allow or disallow room transfer

@@ -2,8 +2,6 @@
 {%extends "index.html"%}
 {%block content%}
 {%for user in results %}
-{% for name in user %}
-<h1>{%print(name)%}</h1>
-{%endfor%}
+<h1>{%print(user)%}</h1>
 {%endfor%}
 {%endblock%}

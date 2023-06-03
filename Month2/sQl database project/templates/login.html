@@ -1,8 +1,8 @@
 {% extends "index.html" %}
-{% content block%}
-<form methods="get">
-    <p1><input type="text" name="ssn" placeholder="Enter your firstname"></p1>
-    <p1><input type="number" name="usr" placeholder="Enter your ssn"></p1>
-    <p1><input type="submit" value="submit"></p1>
+{%block content%}
+<form methods="POST">
+    <p><input type="text" name="fname_" placeholder="Enter your firstname"></p>
+    <p><input type="password" name="password_" placeholder="Enter your password"></p>
+    <p><input type="submit" value="submit"></p>
 </form>
 {% endblock%}

@@ -1,2 +1,15 @@
 <!DOCTYPE html>
 {%extends "index.html"%}
+{% block content %}
+<p>Welcome, {{user}}!</p>
+<p1> Choose a room.</p1>
+{% for room in all_rooms %}
+<form>
+    <p1>{{room.roomnum}}</p1>
+    <p1>{{room.tenant_1}}</p1>
+    <p1>{{room.tenant_2}}</p1>
+    <p2><button type="submit" value="{{user}}" name="room1">Room 1</button></p2>
+    <p2><button type="submit" value="{{user}}" name="room2">Room 2</button></p2>
+</form>
+{% endfor %}
+{% endblock %}

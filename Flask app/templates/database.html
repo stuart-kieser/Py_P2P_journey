@@ -1,8 +1,22 @@
 <!DOCTYPE html>
 {%extends "index.html"%}
 {%block content%}
-{% for data in content %}
-<p2>{%print(data)%}</p2>
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+{% for msg in messages %}
+<p1>{{msg}}</p1>
+{% endfor %}
+{% endif %}
+{% endwith%}
+{% for tenant in content %}
+<form method="POST" action="/remove_tenant/{{tenant.id}}">
+    <p2>{{tenant.id}}</p2>
+    <p2>{{tenant.name}}</p2>
+    <p2>{{tenant.age}}</p2>
+    <p2><button type="submit" value="{{tenant.id}}" name="view">View</button></p2>
+    <p2><button type="submit" value="{{tenant.id}}" name="remove">Remove</button></p2>
+    <p2><button type="submit" value="{{tenant.id}}" name="actionChangeRooms">Change rooms</button></p2>
+</form>
 <br>
 {%endfor%}
 {%endblock%}

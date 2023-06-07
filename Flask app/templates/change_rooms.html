@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+{%extends "index.html"%}
+{% block content %}
+<p>Welcome, {{user}}!</p>
+<p1> Choose a room.</p1>
+{% for room in all_rooms %}
+<form action="/change_rooms/{{ room.roomnum }}" methods="POST">
+    <div style="display: flex; align-items: center;">
+        <p1>Room Number: {{room.roomnum}}</p1>
+        <p1>Occupant ID: {{room.tenant_1}}</p1>
+        <p1>Occupant ID: {{room.tenant_2}}</p1>
+        <input type="hidden" value="{{user}}" name="tenant_id">
+        <input type="submit" name="room{{ room.roomnum }}" value="Select Room">
+    </div>
+</form>
+{% endfor %}
+{% endblock %}

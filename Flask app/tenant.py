@@ -24,7 +24,7 @@ class tenant(db.Model):
         self.age = age
 
     def __repr__(self):
-        return f"Tenant:id={self.id}, name='{self.name}', age={self.age})"
+        return f"Tenant:id={self.id}, name='{self.name}', age={self.age}"
 
 
 class room(db.Model):
@@ -45,11 +45,15 @@ class room(db.Model):
 
 
 def create_rooms():
-    rooms = []
-    for i in range(500):
-        room_ = room(i, None, None)
-        rooms.append(room_)
-    return rooms
+    existing_rooms = room.query.all()
+    if existing_rooms:
+        return existing_rooms
+    else:
+        rooms = []
+        for i in range(10):
+            room_ = room(i, None, None)
+            rooms.append(room_)
+        return rooms
 
 
 @app.route("/", methods=["POST", "GET"])
@@ -95,17 +99,22 @@ def login():
 def usr(user):
     if "name" in session:
         name = session.get("name")
-    all_rooms = room.query.all()
-    return render_template("user.html", user=name, all_rooms=all_rooms)
+        tenant_room = room.query.filter_by(tenant_1=name).first()
+        if tenant_room == None:
+            tenant_room = f"{user} has not been assigned a room."
+            return render_template("user.html", user=name, tenant_room=tenant_room)
+        else:
+            return render_template("user.html", user=name, tenant_room=tenant_room)
+    return render_template("user.html", user=name, tenant_room=None)
 
 
 @app.route("/database", methods=["POST", "GET"])
 def database():
     content = tenant.query.all()
-
     if request.method == "POST":
-        if request.form.get("view") == "tenant":
-            return redirect(url_for("usr"))
+        tenant_id = request.form.get("view_tenant")
+        if tenant_id:
+            return redirect(url_for("usr", user=tenant_id))
 
     return render_template("database.html", content=content)
 
@@ -122,6 +131,22 @@ def remove_tenant(tenant_id):
     return redirect(url_for("database"))
 
 
+@app.route("/change_rooms/<int:tenant_id>", methods=["POST", "GET"])
+def change_rooms(tenant_id):
+    room_num = request.form.get("room{{roomnum}}")
+    room_ = room.query.filter_by(roomnum=room_num)
+    if room_:
+        if not room_.tenant_1:
+            room_.tenant_1 = tenant_id
+        elif not room_.tenant_2:
+            room_.tenant_2 = tenant_id
+        db.session.commit()
+
+    all_rooms = room.query.all()
+    user = tenant_id
+    return render_template("change_rooms.html", user=user, all_rooms=all_rooms)
+
+
 @app.route("/logout")
 def logout():
     if "name" in session:
@@ -136,11 +161,8 @@ def logout():
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
+        rooms = create_rooms()
+        for room_ in rooms:
+            db.session.add(room_)
+            db.session.commit()
     app.run(debug=True)
-
-rooms = create_rooms()
-with app.app_context():
-    for room_ in rooms:
-        db.session.add(room_)
-    db.session.commit()
-    

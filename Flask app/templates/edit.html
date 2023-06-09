@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+{%extends "index.html"%}
+{% block content %}
+<p>Welcome, {{tenant_id}}!</p>
+{%for room in rooms%}
+<form action="/edit/{{tenant_id}}" method="POST">
+    <p2>Room: {{room.roomnum}}</p2>
+    <p2>Tenant 1: {{room.tenant_1}}</p2>
+    <p2>Tenant 2: {{room.tenant_2}}</p2>
+    <input type="hidden" name="room_num" value="{{room.roomnum}}">
+    <input type="hidden" name="tenant_id" value="{{tenant_id}}">
+    <input type="submit" name="room1" value="Room: {{room.roomnum}}" placeholder="Room 1">
+</form>
+{%endfor%}
+{% endblock %}

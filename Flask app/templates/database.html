@@ -9,21 +9,21 @@
 {% endif %}
 {% endwith%}
 {% for tenant in content %}
-<form method="GET">
-    <div style="display: flex; align-items: center;">
-        <p2>{{tenant.id}} </p2>
-        <p2>{{tenant.name}} </p2>
-        <p2>{{tenant.age}} </p2>
-        <form method="POST" action="/view_tenant/{{tenant.id}}">
-            <p2><button type="submit" value="{{tenant.id}}" name="view">View</button></p2>
-        </form>
-        <form method="POST" action="/remove_tenant/{{tenant.id}}">
-            <p2><button type="submit" value="{{tenant.id}}" name="remove">Remove</button></p2>
-        </form>
-        <form method="POST" action="/change_rooms/{{tenant.id}}">
-            <p2><button type="submit" value="{{tenant.id}}" name="changerooms">Change rooms</button></p2>
-        </form>
-    </div>
-</form>
+
+<div style="display: flex; align-items: center;">
+    <p2>{{tenant.id}} </p2>
+    <p2>{{tenant.name}} </p2>
+    <p2>{{tenant.age}} </p2>
+    <form method="POST" action="/usr">
+        <p2><button type="submit" value="{{tenant.id}}" name="view">View</button></p2>
+    </form>
+    <form method="POST" action="/remove_tenant/{{tenant.id}}">
+        <p2><button type="submit" value="{{tenant.id}}" name="remove">Remove</button></p2>
+    </form>
+    <form method="POST" action="/edit/{{tenant.id}}">
+        <p2><button type="submit" value="{{tenant.id}}" name="edit">Edit</button></p2>
+    </form>
+</div>
+
 {%endfor%}
 {%endblock%}

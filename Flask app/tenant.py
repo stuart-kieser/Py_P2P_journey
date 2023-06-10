@@ -104,7 +104,9 @@ def usr(user):
 
     user_id = user_obj.id
 
-    tenant_room = room.query.filter_by(tenant_1=user_id, tenant_2=user_id).first()
+    tenant_room = room.query.filter_by(tenant_1=user_id).first()
+    if not tenant_room:
+        tenant_room = room.query.filter_by(tenant_2=user_id).first()
 
     return render_template("user.html", user=user, tenant_room=tenant_room)
 
@@ -123,14 +125,17 @@ def database():
 @app.route("/remove_tenant/<int:tenant_id>", methods=["POST"])
 def remove_tenant(tenant_id):
     tenant_to_remove = tenant.query.filter_by(id=tenant_id).first()
-    room_to_evict = room.query.filter_by(tenant_1=tenant_id, tenant_2=tenant_id).first()
+    room_to_evict = room.query.filter_by(tenant_1=tenant_id).first()
+    print(f"tenant and room found [{tenant_to_remove}], Room: {room_to_evict}")
+    if not room_to_evict:
+        room_to_evict = room.query.filter_by(tenant_2=tenant_id).first()
     if tenant_to_remove:
-        if room_to_evict.tenant_1 is tenant_id:
+        if room_to_evict.tenant_1:
             room_to_evict.tenant_1 = None
-        elif room_to_evict.tenant_2 is tenant_id:
-            room_to_evict.tenant_2 = tenant_id
+        else:
+            room_to_evict.tenant_2 = None
         db.session.commit()
-        print("commiting to databas...")
+        print("commiting to database...")
     db.session.delete(tenant_to_remove)
     db.session.commit()
     flash(f"{tenant_to_remove} removed successfully", "success")

@@ -86,12 +86,19 @@ def login():
         id = request.form["id"]
         name = request.form["name"]
         session["name"] = name
-        found_user = tenant.query.filter_by(name=name).first()
+        found_user = tenant.query.filter(
+            ((tenant.id == id) | (tenant.name == name))
+        ).first()
+        print(f"Found user: [{found_user}] - ID[{id}], NAME[{name}]")
         if found_user:
-            return redirect(url_for("usr", user=name))
+            if found_user.id == int(id):
+                print(f"User logging in: {found_user.id}")
+                return redirect(url_for("usr", user=name))
+            else:
+                print("ID doesnt match...")
         else:
             flash("Account details do not exist.")
-            return redirect(url_for("login"))
+        return redirect(url_for("login"))
     return render_template("login.html")
 
 
@@ -158,6 +165,12 @@ def edit(tenant_id):
             db.session.commit()
             return redirect(url_for("usr", user=tenant_id))
     return render_template("edit.html", tenant_id=tenant_id, rooms=rooms)
+
+
+@app.route("/view/<int:tenant_id>", methods=["GET"])
+def view(tenant_id):
+    if request.method == "GET":
+        return redirect(url_for("usr", user=tenant_id))
 
 
 @app.route("/logout")

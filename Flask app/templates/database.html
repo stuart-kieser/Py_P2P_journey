@@ -14,7 +14,7 @@
     <p2>{{tenant.id}} </p2>
     <p2>{{tenant.name}} </p2>
     <p2>{{tenant.age}} </p2>
-    <form method="POST" action="/usr">
+    <form method="POST" action="/view/{{tenant.id}}">
         <p2><button type="submit" value="{{tenant.id}}" name="view">View</button></p2>
     </form>
     <form method="POST" action="/remove_tenant/{{tenant.id}}">

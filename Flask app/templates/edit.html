@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 {%extends "index.html"%}
 {% block content %}
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+{% for msg in messages %}
+<p1>{{msg}}</p1>
+{% endfor %}
+{% endif%}
+{% endwith %}
 <p>Welcome, {{tenant_id}}!</p>
 {%for room in rooms%}
 <form action="/edit/{{tenant_id}}" method="POST">

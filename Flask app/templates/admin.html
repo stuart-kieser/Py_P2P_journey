@@ -17,6 +17,12 @@
     <form method="POST" action="/view/{{tenant.id}}">
         <p2><button type="submit" value="{{tenant.id}}" name="view">View</button></p2>
     </form>
+    <form method="POST" action="/remove_tenant/{{tenant.id}}">
+        <p2><button type="submit" value="{{tenant.id}}" name="remove">Remove</button></p2>
+    </form>
+    <form method="POST" action="/edit/{{tenant.id}}">
+        <p2><button type="submit" value="{{tenant.id}}" name="edit">Edit</button></p2>
+    </form>
 </div>
 
 {%endfor%}

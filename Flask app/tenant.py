@@ -86,65 +86,91 @@ def login():
         id = request.form["id"]
         name = request.form["name"]
         session["name"] = name
+
+        if name == "admin":
+            return redirect(url_for("admin"))
+
         found_user = tenant.query.filter(
             ((tenant.id == id) | (tenant.name == name))
         ).first()
         print(f"Found user: [{found_user}] - ID[{id}], NAME[{name}]")
+
         if found_user:
             if found_user.id == int(id):
                 print(f"User logging in: {found_user.id}")
                 return redirect(url_for("usr", user=name))
+
             else:
                 print("ID doesnt match...")
+
         else:
             flash("Account details do not exist.")
+
         return redirect(url_for("login"))
+
     return render_template("login.html")
 
 
 @app.route("/<user>", methods=["GET", "POST"])
 def usr(user):
     user_obj = tenant.query.filter_by(name=user).first()
-
-    if user_obj is None:
-        return redirect(url_for("database"))
-
     user_id = user_obj.id
+    user_name = user_obj.name
+    user_age = user_obj.age
 
-    tenant_room = room.query.filter_by(tenant_1=user_id).first()
-    if not tenant_room:
-        tenant_room = room.query.filter_by(tenant_2=user_id).first()
+    user_package = [user_id, user_name, user_age]
 
-    return render_template("user.html", user=user, tenant_room=tenant_room)
+    tenant_room = room.query.filter(
+        (room.tenant_1 == user_id) | (room.tenant_2 == user_id)
+    ).first()
+
+    if tenant_room:
+        return render_template("user.html", user=user, tenant_room=tenant_room)
+
+    elif flash(f"looks like you dont have a room? lets get you set up with that."):
+        return redirect(url_for("edit", tenant_id=user_id))
+
+    return render_template("user.html", user=user_package, tenant_room=tenant_room)
 
 
-@app.route("/database", methods=["POST", "GET"])
-def database():
+@app.route("/admin", methods=["POST", "GET"])
+def admin():
     content = tenant.query.all()
     if request.method == "POST":
         tenant_id = request.form.get("view_tenant")
         if tenant_id:
             return redirect(url_for("usr", user=tenant_id))
 
+    return render_template("admin.html", content=content)
+
+
+@app.route("/database", methods=["POST", "GET"])
+def database():
+    content = tenant.query.all()
     return render_template("database.html", content=content)
 
 
 @app.route("/remove_tenant/<int:tenant_id>", methods=["POST"])
 def remove_tenant(tenant_id):
     tenant_to_remove = tenant.query.filter_by(id=tenant_id).first()
-    room_to_evict = room.query.filter_by(tenant_1=tenant_id).first()
-    print(f"tenant and room found [{tenant_to_remove}], Room: {room_to_evict}")
-    if not room_to_evict:
-        room_to_evict = room.query.filter_by(tenant_2=tenant_id).first()
-    if tenant_to_remove:
-        if room_to_evict.tenant_1:
-            room_to_evict.tenant_1 = None
-        else:
-            room_to_evict.tenant_2 = None
-        db.session.commit()
-        print("commiting to database...")
+    room_to_evict = room.query.filter(
+        (room.tenant_1 == tenant_id) | (room.tenant_2 == tenant_id)
+    ).first()
+    if room_to_evict:
+        print(f"Found room: {room_to_evict}")
+    if tenant_id == room_to_evict.tenant_1:
+        room_to_evict.tenant_1 = None
+        print(f"found tenant:{room_to_evict}")
+    elif tenant_id == room_to_evict.tenant_2:
+        room_to_evict.tenant_2 = None
+        print(f"found tenant:{room_to_evict}")
+
+    flash(f"Tenant has been removed: {room_to_evict}", "success")
+    print("commiting to database...")
+
     db.session.delete(tenant_to_remove)
     db.session.commit()
+
     flash(f"{tenant_to_remove} removed successfully", "success")
     return redirect(url_for("database"))
 
@@ -159,7 +185,7 @@ def edit(tenant_id):
         if tenant_room:
             if tenant_room.tenant_1 == None:
                 tenant_room.tenant_1 = tenant_id
-            elif tenant_room.tenant_2 == None:
+            elif tenant_room.tenant_2 == None and tenant_room.tenant_2 is not tenant_id:
                 tenant_room.tenant_2 = tenant_id
             print("commiting to databas...")
             db.session.commit()
@@ -167,10 +193,17 @@ def edit(tenant_id):
     return render_template("edit.html", tenant_id=tenant_id, rooms=rooms)
 
 
-@app.route("/view/<int:tenant_id>", methods=["GET"])
+@app.route("/view/<int:tenant_id>", methods=["GET", "POST"])
 def view(tenant_id):
-    if request.method == "GET":
-        return redirect(url_for("usr", user=tenant_id))
+    tenant_room = room.query.filter_by(tenant_1=tenant_id).first()
+
+    tenant_name = tenant.query.filter_by(id=tenant_id).first()
+
+    if not tenant_room:
+        tenant_room = room.query.filter_by(tenant_2=tenant_id).first()
+    return render_template(
+        "view.html", tenant_name=tenant_name, tenant_room=tenant_room
+    )
 
 
 @app.route("/logout")

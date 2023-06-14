@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 {%extends "index.html"%}
 {% block content %}
-<p>Welcome, {{user}}!</p>
-<form>
 
-    Tenant room: {{tenant_room}}
+<p>Welcome, {{user_name}}!</p>
 
-</form>
-{% endblock %}
+<div style="display: flex; align-items: center;">
+    <p2>{{user_id}} </p2>
+    <p2>{{user_name}} </p2>
+    <p2>{{user_age}} </p2>
+    <p2>{{tenant_room}}</p2>
+</div>
+
+{%endblock%}

@@ -2,13 +2,23 @@
 {%extends "index.html"%}
 {% block content %}
 
-<p>Welcome, {{user_name}}!</p>
+<p>Welcome, {{user.name}}!</p>
 
-<div style="display: flex; align-items: center;">
-    <p2>{{user_id}} </p2>
-    <p2>{{user_name}} </p2>
-    <p2>{{user_age}} </p2>
+<div>
+    <p2>{{user.id}} </p2>
+    <br>
+    <p2>{{user.name}} </p2>
+    <br>
+    <p2>{{user.age}} </p2>
+    <br>
     <p2>{{tenant_room}}</p2>
 </div>
+
+<p1>Lodge a complaint, and we will get back to you as soon as possible</p1>
+
+<form method="POST">
+    <input type="string" name="maintenance">
+    <input type="submit" value="submit">
+</form>
 
 {%endblock%}

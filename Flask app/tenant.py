@@ -74,6 +74,7 @@ def home():
             user = tenant(id, name, age)
             db.session.add(user)
             db.session.commit()
+            print(f"user created: {user}")
             return redirect(url_for("usr", user=name))
 
     return render_template("home.html")
@@ -113,24 +114,24 @@ def login():
 
 @app.route("/<user>", methods=["GET", "POST"])
 def usr(user):
-    user_obj = tenant.query.filter_by(name=user).first()
-    user_id = user_obj.id
-    user_name = user_obj.name
-    user_age = user_obj.age
+    if request.method == "GET":
+        user_obj = tenant.query.filter_by(name=user).first()
 
-    user_package = [user_id, user_name, user_age]
+        if user_obj is None:
+            flash(f"User not found")
+            return redirect(url_for("home"))
 
-    tenant_room = room.query.filter(
-        (room.tenant_1 == user_id) | (room.tenant_2 == user_id)
-    ).first()
+        tenant_room = room.query.filter(
+            (room.tenant_1 == user_obj.id) | (room.tenant_2 == user_obj.id)
+        ).first()
 
-    if tenant_room:
-        return render_template("user.html", user=user, tenant_room=tenant_room)
+        if not tenant_room:
+            flash(f"looks like you dont have a room? lets get you set up with that.")
+            return redirect(url_for("edit", tenant_id=user_obj.id))
 
-    elif flash(f"looks like you dont have a room? lets get you set up with that."):
-        return redirect(url_for("edit", tenant_id=user_id))
-
-    return render_template("user.html", user=user_package, tenant_room=tenant_room)
+        if request.method == "POST":
+            return redirect(url_for("usr"))
+    return render_template("user.html", user=user_obj, tenant_room=tenant_room)
 
 
 @app.route("/admin", methods=["POST", "GET"])

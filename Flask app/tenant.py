@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import timedelta
+from sqlalchemy import PrimaryKeyConstraint
 
 app = Flask(__name__)
 
@@ -11,6 +12,20 @@ app.permanent_session_lifetime = timedelta(days=5)
 
 # db creation
 db = SQLAlchemy(app)
+
+
+class maintenance(db.Model):
+    id = db.Column(db.Integer, nullable=False)
+    complaint = db.Column(db.String(100), nullable=False)
+
+    __table_args__ = (PrimaryKeyConstraint("id", "complaint"),)
+
+    def __init__(self, id, complaint):
+        self.id = id
+        self.complaint = complaint
+
+    def __repr__(self):
+        return f"{self.id}, {self.complaint}"
 
 
 class tenant(db.Model):
@@ -118,8 +133,8 @@ def usr(user):
         user_obj = tenant.query.filter_by(name=user).first()
 
         if user_obj is None:
-            flash(f"User not found")
-            return redirect(url_for("home"))
+            flash(f"Tenant has been assigned a room.")
+            return redirect(url_for("database"))
 
         tenant_room = room.query.filter(
             (room.tenant_1 == user_obj.id) | (room.tenant_2 == user_obj.id)
@@ -129,20 +144,32 @@ def usr(user):
             flash(f"looks like you dont have a room? lets get you set up with that.")
             return redirect(url_for("edit", tenant_id=user_obj.id))
 
-        if request.method == "POST":
-            return redirect(url_for("usr"))
     return render_template("user.html", user=user_obj, tenant_room=tenant_room)
+
+
+@app.route("/complaints/<int:tenant_id>", methods=["POST"])
+def complaints(tenant_id):
+    user_id = tenant.query.filter_by(id=tenant_id).first()
+    complaint_form = request.form.get("maintenance")
+    tenant_complaint = maintenance(tenant_id, complaint_form)
+    db.session.add(tenant_complaint)
+    db.session.commit()
+    print(f"Complaint has been filed: {complaint_form}")
+    return redirect(url_for("usr", user=user_id.name))
 
 
 @app.route("/admin", methods=["POST", "GET"])
 def admin():
+    maintenance_requests = maintenance.query.all()
     content = tenant.query.all()
     if request.method == "POST":
         tenant_id = request.form.get("view_tenant")
         if tenant_id:
             return redirect(url_for("usr", user=tenant_id))
 
-    return render_template("admin.html", content=content)
+    return render_template(
+        "admin.html", content=content, maintenance_requests=maintenance_requests
+    )
 
 
 @app.route("/database", methods=["POST", "GET"])
@@ -161,10 +188,10 @@ def remove_tenant(tenant_id):
         print(f"Found room: {room_to_evict}")
     if tenant_id == room_to_evict.tenant_1:
         room_to_evict.tenant_1 = None
-        print(f"found tenant:{room_to_evict}")
+        print(f"tenant {tenant_id} removed")
     elif tenant_id == room_to_evict.tenant_2:
         room_to_evict.tenant_2 = None
-        print(f"found tenant:{room_to_evict}")
+        print(f"tenant {tenant_id }removed")
 
     flash(f"Tenant has been removed: {room_to_evict}", "success")
     print("commiting to database...")
@@ -173,7 +200,7 @@ def remove_tenant(tenant_id):
     db.session.commit()
 
     flash(f"{tenant_to_remove} removed successfully", "success")
-    return redirect(url_for("database"))
+    return redirect(url_for("admin"))
 
 
 @app.route("/edit/<int:tenant_id>", methods=["POST", "GET"])

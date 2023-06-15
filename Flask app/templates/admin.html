@@ -24,6 +24,12 @@
         <p2><button type="submit" value="{{tenant.id}}" name="edit">Edit</button></p2>
     </form>
 </div>
-
 {%endfor%}
+
+{% for maintenance in maintenance_requests %}
+<div style="display: flex; align-items: center;">
+    <p>{{maintenance}}</p>
+</div>
+{%endfor%}
+
 {%endblock%}

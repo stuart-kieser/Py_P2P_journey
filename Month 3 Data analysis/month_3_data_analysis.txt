@@ -1,0 +1,46 @@
+1. What is data analysis?
+Parsing data to find useable and applicable value to aid in decision making 
+Pandas reads and cleans data
+Data needs to be turned into information
+
+2. Data analysis process.
+Data extraction
+    SQL
+    Scrapping
+    Files
+    APIS
+    Buying data
+    Distributed databases
+Data cleaning 
+    Missing values and empty data 
+    Data imputation 
+    Incorrect data types
+    Incorrect or invalid values
+    Outliers
+    Statistical sanitization
+Data Wranginling 
+    Hierarchical data 
+    Handling categorical data 
+    Reshaping for better analysis
+    Indexing data for faster access
+    Merging, Combining data
+Data analysis 
+    Exploration
+    Trends
+    Patterns 
+    Building models
+    Visiualization 
+Action
+    Using the data applicably 
+    Build reports and communicates results
+Note this is never a linear process, lots of jumping around and optimiztion
+
+3. Data analysis vs Data Science
+Data science involves coding and such 
+Data analyis involces more communication 
+
+4.
+5. 
+6.
+7.
+8.

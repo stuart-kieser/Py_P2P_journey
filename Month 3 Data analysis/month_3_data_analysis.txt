@@ -18,7 +18,7 @@ Data cleaning
     Incorrect or invalid values
     Outliers
     Statistical sanitization
-Data Wranginling 
+Data Wrangiling 
     Hierarchical data 
     Handling categorical data 
     Reshaping for better analysis

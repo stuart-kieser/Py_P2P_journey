@@ -1,1 +1,1 @@
-Find the correlation of your entire crypto portfolio and do a market analysis of the numbers
+Find the correlation, moving average and precentage change of the cryptos in your protfolio. 

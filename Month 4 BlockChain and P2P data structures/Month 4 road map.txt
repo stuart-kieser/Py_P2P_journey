@@ -1,0 +1,37 @@
+Month 4 Road Map BC
+#BlockChain
+How does mining and validation work? 
+How are tokens put into circulation, removed from circulation and how does the math behind it work?
+How do transactions work?
+How do miners fetch transaction data from the BC if it isnt stored on the node?
+How does the BC know an address exists?
+How do BCs interact with other BCs?
+
+#Security
+How does security work in the blockchain?
+How can the network including miners be kept safe?
+
+#Wallet integration
+How do wallets work?
+How do wallets connect to a BC to intract with it?
+How do contracts affect wallets party to contracts?
+How can you use a wallet to upload a contract to the BC?
+
+#Miners
+How do miners access the code to run a server?
+How can you prevent miners from changing code?
+How do you prevent attacks from malicious users?
+How do nodes start up, What information should be required to start up a node?
+How do nodes speak to eachother?
+What is miner state and how is it presented to the BC for other nodes to see?
+How does hard forking work?
+What are issues with latency that may effect the integrity of BCs and how does it affect miner state?
+
+#Validation-Algo
+What is validation and how will it work? How will miners retreive necessary data they have not stored from BC?
+How are accounts/addresses validated and how do they work?
+
+#miner-rewards
+How will miner rewards work
+How will storage with with miner rewards
+How do miners join and ecosystem and where does their stake go if they are staking?

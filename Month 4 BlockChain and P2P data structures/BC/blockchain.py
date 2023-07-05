@@ -1,8 +1,10 @@
 from hashlib import sha256
 from typing import Optional
 import time
+import subprocess
 
 GENESIS_HASH = "0" * 64
+tx_pool = []
 
 
 def update_hash(*args):
@@ -12,7 +14,7 @@ def update_hash(*args):
     for arg in args:
         hashing_text += str(arg)
 
-    h.update(hashing_text.encode("utf-8"))
+    hash = h.update(hashing_text.encode("utf-8"))
     return h.hexdigest()
 
 
@@ -40,7 +42,9 @@ class Block:
             return self.previous.get_hash()
 
     def get_hash(self):
-        return update_hash(self.number, self.previous, self.data, self.nonce)
+        return update_hash(
+            self.number, self.data, self.previous, self.nonce, self.timestamp
+        )
 
     def get_timestamp(self):
         struct_time = time.localtime()
@@ -59,6 +63,11 @@ class Block:
                 self.get_timestamp(),
             )
         )
+
+    def get_transaction(self):
+        tx_list = []
+        for tx in tx_pool in range(10):
+            tx_list.append(tx)
 
 
 class Blockchain:
@@ -94,6 +103,19 @@ class Blockchain:
                 return False
             return True
 
+    def get_transaction(self):
+        tx_list = []
+        for i, tx in enumerate(tx_pool):
+            tx_list.append(tx)
+            if i == 9:
+                break
+        return tx_list
+
+
+def blockchain_broadcast_update(number, data, previous, nonce, timestamp):
+    block = Block(number, data, previous, nonce, timestamp)
+    Blockchain.mine(block)
+
 
 def main():
     blockchain = Blockchain()
@@ -103,7 +125,8 @@ def main():
     num += 1
 
     for num in range(25):
-        blockchain.mine(Block(num, None, (num * num)))
+        tx = blockchain.get_transaction()
+        blockchain.mine(Block(num, None, tx))
 
     for block in blockchain.chain:
         print(block)

@@ -14,7 +14,7 @@ BC node updates
 """
 
 msg = queue.Queue()
-clients = []
+clients = queue.Queue()
 
 PORT = int(input("select a port in the range 8000 - 9000:"))
 
@@ -39,9 +39,7 @@ def broadcast():
     while True:
         while not msg.empty():
             message, addr = msg.get()
-            if addr not in clients:
-                clients.append(addr)
-            for client in clients:
+            for client in list(clients.queue):
                 try:
                     decoded_message = message.decode("utf-8")
                     if decoded_message.startswith("BCU:"):
@@ -75,6 +73,7 @@ while True:
     elif message == "show_nodes()":
         print(show_nodes())
     else:
-        for client in clients:
-            for addr in client:
-                server.sendto(message.encode(), ("localhost", addr))
+        for i in range(8000, 9000):
+            print(f"Trying port:{i}")
+            server.sendto(message.encode(), ("localhost", i))
+            server.close()

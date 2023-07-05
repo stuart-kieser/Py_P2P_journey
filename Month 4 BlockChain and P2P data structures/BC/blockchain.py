@@ -20,6 +20,7 @@ def update_hash(*args):
 
 class Block:
     # actual block structure
+
     number: int
     previous: Optional["Block"]
     data: Optional[dict]

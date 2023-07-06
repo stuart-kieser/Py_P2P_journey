@@ -12,6 +12,7 @@ BC transaction updates
 BC node bans
 BC node updates
 """
+rendevous_server = ("localhost", 55555)
 
 msg = queue.Queue()
 clients = queue.Queue()
@@ -20,19 +21,45 @@ PORT = int(input("select a port in the range 8000 - 9000:"))
 
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind(("localhost", PORT))
+server.sendto(b"0", rendevous_server)
+
+
+while True:
+    data = server.recv(1024).decode()
+
+    if data.strip() == "ready":
+        print("checked in with server, waiting")
+        break
+
+data = server.recv(1024).decode()
+ip, sport, dport = data.split(" ")
+sport = int(sport)
+dport = int(dport)
+
+print("\nGot peer")
+print("ip:{}".format(ip))
+print("sport:{}".format(sport))
+print("dport:{}\n".format(dport))
+print("Punhcing hole...")
+
+
+server.sendto(b"0", (ip, dport))
+
+print("Data exchange is ready")
 
 
 def show_nodes():
     return clients
 
 
-def receive():
+def listen():
     while True:
-        try:
-            message, addr = server.recvfrom(1024)
-            msg.put((message, addr))
-        except:
-            pass
+        data = server.recv(1024)
+        print("\rrendevous peer details: {}\n> ".format(data.decode("utf-8")), end="")
+
+
+listener = threading.Thread(target=listen, daemon=True)
+listener.start()
 
 
 def broadcast():
@@ -56,24 +83,14 @@ def broadcast():
                     clients.remove(client)
 
 
-t1 = threading.Thread(target=receive)
 t2 = threading.Thread(target=broadcast)
-
-
-t1.start()
 t2.start()
 
-print(f"Server is listening on PORT[{PORT}]")
-
-
 while True:
-    message = input("")
-    if message == "!q":
+    msg = input("> ")
+    if msg == "!q":
         quit()
-    elif message == "show_nodes()":
-        print(show_nodes())
+    elif msg == "show_nodes()":
+        print(list(show_nodes()))
     else:
-        for i in range(8000, 9000):
-            print(f"Trying port:{i}")
-            server.sendto(message.encode(), ("localhost", i))
-            server.close()
+        server.sendto(msg.encode(), (ip, sport))

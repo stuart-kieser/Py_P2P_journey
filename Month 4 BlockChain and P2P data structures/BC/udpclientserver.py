@@ -14,7 +14,7 @@ BC node updates
 """
 rendevous_server = ("localhost", 55555)
 
-msg = queue.Queue()
+msg_ = []
 clients = queue.Queue()
 
 PORT = int(input("select a port in the range 8000 - 9000:"))
@@ -55,7 +55,8 @@ def show_nodes():
 def listen():
     while True:
         data = server.recv(1024)
-        print("\rrendevous peer details: {}\n> ".format(data.decode("utf-8")), end="")
+        msg_.append(data)
+        print("\rpeer: {}\n> ".format(data.decode("utf-8")), end="")
 
 
 listener = threading.Thread(target=listen, daemon=True)
@@ -64,27 +65,24 @@ listener.start()
 
 def broadcast():
     while True:
-        while not msg.empty():
-            message, addr = msg.get()
-            for client in list(clients.queue):
-                try:
-                    decoded_message = message.decode("utf-8")
-                    if decoded_message.startswith("BCU:"):
-                        message_parts = decoded_message.split(":")[1:]
-                        if len(message_parts) == 5:
-                            number, data, previous, nonce, timestamp = message_parts
-                        blockchain.mine(
-                            blockchain.Block(number, data, previous, nonce, timestamp)
-                        )
-                        server.sendto("AKK".encode(), addr)
-                    else:
-                        server.sendto(message, client)
-                except:
-                    clients.remove(client)
+        for data in list(msg.queue):
+            try:
+                decoded_message = msg.decode("utf-8")
+                if decoded_message.startswith("BCU:"):
+                    message_parts = decoded_message.split(":")[1:]
+                    if len(message_parts) == 5:
+                        number, data, previous, nonce, timestamp = message_parts
+                    blockchain.mine(
+                        blockchain.Block(number, data, previous, nonce, timestamp)
+                    )
+                    server.sendto("AKK".encode(), sport)
+                else:
+                    server.sendto(msg, sport)
+            except:
+                msg.remove(data)
 
 
 t2 = threading.Thread(target=broadcast)
-t2.start()
 
 while True:
     msg = input("> ")

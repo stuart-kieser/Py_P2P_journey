@@ -15,7 +15,7 @@ BC node updates
 rendevous_server = ("localhost", 55555)
 
 msg_ = []
-clients = queue.Queue()
+clients = []
 
 PORT = int(input("select a port in the range 8000 - 9000:"))
 
@@ -35,12 +35,14 @@ data = server.recv(1024).decode()
 ip, sport, dport = data.split(" ")
 sport = int(sport)
 dport = int(dport)
+clients.append({ip: any, sport: int, dport: int})
+
 
 print("\nGot peer")
 print("ip:{}".format(ip))
 print("sport:{}".format(sport))
 print("dport:{}\n".format(dport))
-print("Punhcing hole...")
+print("Punching hole...")
 
 
 server.sendto(b"0", (ip, dport))
@@ -91,4 +93,6 @@ while True:
     elif msg == "show_nodes()":
         print(list(show_nodes()))
     else:
-        server.sendto(msg.encode(), (ip, sport))
+        for client in clients:
+            ip, sport, dport = client
+            server.sendto(msg.encode(), (ip, sport))

@@ -1,10 +1,14 @@
 from hashlib import sha256
 from typing import Optional
 import time
-import subprocess
+import queue
+import random
+import threading
 
 GENESIS_HASH = "0" * 64
-tx_pool = []
+
+tx_pool = queue.Queue(maxsize=0)
+tx_list = []
 
 
 def update_hash(*args):
@@ -13,9 +17,14 @@ def update_hash(*args):
 
     for arg in args:
         hashing_text += str(arg)
+    h.update(hashing_text.encode("utf-8"))
 
-    hash = h.update(hashing_text.encode("utf-8"))
     return h.hexdigest()
+
+
+def add_tx_to_pool(args):
+    print(f"adding tx to pool: {args}")
+    tx_pool.put(args)
 
 
 class Block:
@@ -27,9 +36,7 @@ class Block:
     nonce: int
     timestamp: any
 
-    def __init__(
-        self, number=0, previous=None, data=None, nonce=0, timestamp=any
-    ) -> None:
+    def __init__(self, number=0, previous=any, data=any, nonce=0, timestamp=any) -> any:
         self.number = number
         self.data = data
         self.previous = previous
@@ -65,14 +72,9 @@ class Block:
             )
         )
 
-    def get_transaction(self):
-        tx_list = []
-        for tx in tx_pool in range(10):
-            tx_list.append(tx)
-
 
 class Blockchain:
-    difficulty = 3
+    difficulty = 5
 
     def __init__(self, chain=[]):
         self.chain = chain
@@ -104,35 +106,35 @@ class Blockchain:
                 return False
             return True
 
-    def get_transaction(self):
-        tx_list = []
-        for i, tx in enumerate(tx_pool):
-            tx_list.append(tx)
-            if i == 9:
-                break
-        return tx_list
+
+def blockchain_broadcast_update(args):
+    block_chain = Blockchain()
+    block = Block(args)
+    block_chain.mine(Block(args))
+    return block
 
 
-def blockchain_broadcast_update(number, data, previous, nonce, timestamp):
-    block = Block(number, data, previous, nonce, timestamp)
-    Blockchain.mine(block)
+def get_tx():
+    return tx_list
 
 
-def main():
-    blockchain = Blockchain()
-
+def main(args):
+    struct_time = time.localtime()
+    timestamp = time.mktime(struct_time)
+    print(timestamp)
     num = len(blockchain.chain)
-
-    num += 1
-
-    for num in range(25):
-        tx = blockchain.get_transaction()
-        blockchain.mine(Block(num, None, tx))
-
+    initial_tx_pool = tx_pool.qsize()
+    if tx_pool.qsize() != initial_tx_pool:
+        for tx in tx_pool not in tx_list:
+            tx = tx_pool.get()
+            tx_list.append(tx)
+    print(f"BLOCK ARGS: {type(args)}")
+    block = Block(num, None, args, None, None)
+    print(f"transaction list: {tx_list}")
+    print(block)
     for block in blockchain.chain:
         print(block)
         print(blockchain.isValid())
 
 
-if __name__ == "__main__":
-    main()
+blockchain = Blockchain()

@@ -2,10 +2,8 @@ from hashlib import sha256
 from typing import Optional
 import time
 import queue
-import random
-import threading
 
-GENESIS_HASH = "0" * 64
+gENESIS_HASH = "0" * 64
 
 tx_pool = queue.Queue(maxsize=0)
 tx_list = []
@@ -23,29 +21,28 @@ def update_hash(*args):
 
 
 def add_tx_to_pool(args):
-    print(f"adding tx to pool: {args}")
     tx_pool.put(args)
 
 
 class Block:
     # actual block structure
 
-    number: int
+    number: Optional[int]
     previous: Optional["Block"]
     data: Optional[dict]
-    nonce: int
-    timestamp: any
+    nonce: Optional[int]
+    timestamp: float
 
-    def __init__(self, number=0, previous=any, data=any, nonce=0, timestamp=any) -> any:
+    def __init__(self, number=0, previous=None, data=any, nonce=0, timestamp=None):
         self.number = number
         self.data = data
         self.previous = previous
         self.nonce = nonce
-        self.timestamp = timestamp
+        self.timestamp = timestamp or self.get_timestamp()
 
     def get_previous_hash(self):
-        if self.previous is None:
-            return GENESIS_HASH
+        if self.previous is None or IndexError:
+            return gENESIS_HASH
         else:
             return self.previous.get_hash()
 
@@ -68,8 +65,8 @@ class Block:
                 self.previous,
                 self.data,
                 self.nonce,
-                self.get_timestamp(),
-            )
+                self.timestamp,
+            ),
         )
 
 
@@ -90,7 +87,7 @@ class Blockchain:
 
         while True:
             if block.get_hash()[: self.difficulty] == "0" * self.difficulty:
-                self.add(block)
+                blockpool.add(block)
                 break
             else:
                 block.nonce += 1
@@ -107,34 +104,72 @@ class Blockchain:
             return True
 
 
-def blockchain_broadcast_update(args):
-    block_chain = Blockchain()
-    block = Block(args)
-    block_chain.mine(Block(args))
-    return block
+class BlockPool:
+    def __init__(self, block_pool=[]):
+        self.block_pool = block_pool
+
+    def add(self, block):
+        self.block = block
+        self.block_pool.append(block)
+        print(f"blockpool updated:\n")
+
+        if len(self.block_pool) == (len(bc_client.clients) + 1):
+            validation(self)
+            return
 
 
-def get_tx():
-    return tx_list
+def validation(self):
+    print("Block Pool size:", len(self.block_pool))
+    print("Client list size:", (len(bc_client.clients) + 1), "\n")
+    max_timestamp = max(self.block_pool, key=lambda b: float(b.timestamp))
+    blockchain.add(max_timestamp)
+    self.block_pool.clear()
+    print("Block minted:", max_timestamp)
+    return
+
+
+class Clients:
+    def __init__(self, clients=None):
+        if clients is None:
+            self.clients = []
+        else:
+            self.clients = clients
+
+    def add_clients(self, client):
+        self.clients.append(client)
+        print("client added on blockchain side")
 
 
 def main(args):
     struct_time = time.localtime()
     timestamp = time.mktime(struct_time)
-    print(timestamp)
+
+    print(f"Mining start time: {timestamp}\n")
+
     num = len(blockchain.chain)
-    initial_tx_pool = tx_pool.qsize()
-    if tx_pool.qsize() != initial_tx_pool:
-        for tx in tx_pool not in tx_list:
-            tx = tx_pool.get()
-            tx_list.append(tx)
-    print(f"BLOCK ARGS: {type(args)}")
-    block = Block(num, None, args, None, None)
-    print(f"transaction list: {tx_list}")
-    print(block)
-    for block in blockchain.chain:
-        print(block)
-        print(blockchain.isValid())
+    tx_list.append(args)
+
+    print(f"BLOCK ARGS: {type(args)}\n")
+    print(f"transaction list: {tx_list}\n")
+
+    block = Block(num, None, args, 0, None)
+    blockchain.mine(block)
+
+    return block
+
+
+def bc_update():
+    num = len(blockchain.chain)
+    while True:
+        new_num = len(blockchain.chain)
+        if new_num > num:
+            new_num = num
+        try:
+            return blockchain.chain[-1]
+        except IndexError:
+            return None
 
 
 blockchain = Blockchain()
+blockpool = BlockPool()
+bc_client = Clients()

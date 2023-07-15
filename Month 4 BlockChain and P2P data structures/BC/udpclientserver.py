@@ -1,24 +1,16 @@
 import socket
 import threading
-import blockchain
-from blockchain import blockchain_broadcast_update
 import random
+from blockchain import (
+    Block,
+    blockchain,
+    bc_client as bc_client,
+    blockpool as blockpool,
+    add_tx_to_pool,
+    main,
+)
 
-tx_to_pool = blockchain.add_tx_to_pool
-bc_update = blockchain.blockchain_broadcast_update
-bc = blockchain.Blockchain()
-block = blockchain.Block()
-btx = blockchain.test_tx
-bc_main = blockchain.main
 
-# this module is for receiving BC updates such as:
-
-"""
-BC block mintings
-BC transaction updates
-BC node bans
-BC node updates
-"""
 rendevous_server = ("localhost", 55555)
 
 clients = []
@@ -35,9 +27,10 @@ def listen():
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server.bind(("localhost", PORT))
 
+    bc_main_flag = True
+
     while True:
         data = server.recv(1024).decode("utf-8")
-        print(data)
         if data.startswith("tx:"):
             info, sender, amount, receiver = data.split(":")
             tx = sender, amount, receiver
@@ -47,29 +40,29 @@ def listen():
             receiver = str(receiver)
 
             print(f"New transaction:{tx, type(tx)}\n")
-            tx_to_pool(tx)
-            bc_main(tx)
+            add_tx_to_pool(tx)
 
-            print(f"transaction updated:\n {tx}\n")
+            if bc_main_flag:
+                returned_block = main(tx)
+                broad_cast_new_block(block=returned_block)
+                print("Returned block:\n", returned_block)
 
         elif data.startswith("bcu:"):
-            info, number, data, previous, nonce, timestamp = data.split(":")
+            print("bcu received:")
+            print(data, "\n")
+            info, number, received_data, previous_hash, nonce, timestamp = data.split(
+                ":"
+            )
             info = str(info)
             number = int(number)
-            data = str(data)
-            previous = str(previous)
+            received_data = str(received_data)
+            previous_hash = str(previous_hash)
             nonce = int(nonce)
-            timestamp = float(timestamp)
-            block_data = number, data, previous, nonce, timestamp
-
-            blockchain_broadcast_update(args=block_data)
-
-            print(f"blockchain updated:\n {block}\n")
-
-            print(blockchain_broadcast_update(args=block_data), "\n")
-
-        else:
-            None
+            timestamp = str(timestamp)
+            bcu_block = Block(number, previous_hash, received_data, 0, timestamp)
+            blockchain.mine(bcu_block)
+            bc_main_flag = False
+        bc_main_flag = True
 
 
 def receive_client():
@@ -77,7 +70,7 @@ def receive_client():
         data = sock.recv(1024).decode()
         print(data)
         if data == "AKK":
-            print("Rendevous server is finished propagating")
+            print("Rendevous server is finished propagating\n")
             break
 
         ip, sport, dport = data.split(" ")
@@ -91,9 +84,11 @@ def receive_client():
         print("printing client:", client)
 
         if client not in clients:
+            bc_client.add_clients(client)
             clients.append(client)
+            print("BC clients list:", bc_client.clients)
         elif client in clients:
-            sock.sendto(b"AKK", rendevous_server)
+            sock.sendto(b"AKK\n", rendevous_server)
 
         print("\nGot peers")
         for client in clients:
@@ -128,6 +123,35 @@ def show_nodes():
     return clients
 
 
+def broad_cast_new_block(block):
+    number = block.number
+    data = block.data
+    previous = block.previous
+    nonce = block.nonce
+    timestamp = block.timestamp
+    bcu = (
+        "bcu"
+        + ":"
+        + str(number)
+        + ":"
+        + str(data)
+        + ":"
+        + str(previous)
+        + ":"
+        + str(nonce)
+        + ":"
+        + str(timestamp)
+    )
+    msg = bcu
+
+    print(f"broadcasting new block\n")
+    print(f"block to broadcast: {msg}\n")
+    for client in clients:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        client_socket.sendto(msg.encode(), (client[0], client[1]))
+        client_socket.close()
+
+
 def test_tx():
     amount = random.randint(10, 100)
     accounts = ["abc", "def", "ghi", "qwd", "gtr"]
@@ -135,16 +159,15 @@ def test_tx():
     remaining_accounts = [account for account in accounts if account != first_account]
     second_account = random.choice(remaining_accounts)
     tx = str(first_account), str(amount), str(second_account)
-    print(type(tx))
-    print(f"transaction update: {tx}")
     return tx
 
 
 while True:
-    msg = input("> ")
-    if msg == "!q":
-        quit()
-    elif msg == "show_nodes()":
+    msg = input(">")
+    if msg == "show_bc":
+        for block in blockchain.chain:
+            print(block)
+    elif msg == "show_nodes":
         print(list(show_nodes()))
     elif msg == "new_propagation":
         break
@@ -153,15 +176,21 @@ while True:
         tx = tx_tuple
         for data in tx:
             first_account, amount, second_account = tx
-        tx_to_pool(tx)
+
+        print(f"New transaction:{tx, type(tx)}\n")
+        add_tx_to_pool(tx)
         tx = str(first_account) + ":" + str(amount) + ":" + str(second_account)
         msg_tx = msg + tx
-        print(msg_tx)
+
         for client in clients:
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             client_socket.sendto(msg_tx.encode(), (client[0], client[1]))
             client_socket.close()
-        bc_main(tx_tuple)
+
+        if True:
+            returned_block = main(tx_tuple)
+            broad_cast_new_block(returned_block)
+            print("Returned block:\n", returned_block)
     else:
         for client in clients:
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

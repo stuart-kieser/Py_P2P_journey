@@ -19,11 +19,9 @@ def propogate_clients():
     while propogation_running:
         for client in clients:
             client_addr, client_port = client
-            print(f"Propagating clients to client: {client_addr, client_port}")
             for other_client in clients:
-                time.sleep(2)
+                time.sleep(1)
                 other_client_addr, other_client_port = other_client
-                print(f"client: {client}, otherClient: {other_client}")
                 if client != other_client:
                     try:
                         sock.sendto(
@@ -34,7 +32,6 @@ def propogate_clients():
                             ).encode(),
                             (client_addr, client_port),
                         )
-                        print("client sent")
                     except ConnectionResetError:
                         print("Client closed the connection", client)
 
@@ -69,9 +66,3 @@ while True:
     except ConnectionResetError:
         print("Error receiving data")
         break
-
-
-def test_bc():
-    while True:
-        a = "txu:sender:amount:receiver"
-        b = "bcu:number:data:previous"

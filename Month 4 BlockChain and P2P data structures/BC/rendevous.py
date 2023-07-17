@@ -53,16 +53,16 @@ while True:
         print("connection from {}".format(address))
         print(f"address:{address} data:{data}")
 
-        sock.sendto(b"AKK", address)
         if address not in clients:
+            sock.sendto(b"AKK", address)
             clients.append(address)
 
         print("Client List:", len(clients))
         if data.decode() == "AKK":
+            print("Propagation halted, waiting for new connections")
             propogation_running = False
             waiting_for_clients = True
-            print("Propagation halted, waiting for new connections")
+            continue
 
     except ConnectionResetError:
         print("Error receiving data")
-        break

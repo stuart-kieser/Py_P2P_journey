@@ -3,6 +3,7 @@ import threading
 import random
 from blockchain import (
     Block,
+    wallet,
     blockchain,
     bc_client as bc_client,
     blockpool as blockpool,
@@ -45,7 +46,7 @@ def listen():
             if bc_main_flag:
                 returned_block = main(tx)
                 broad_cast_new_block(block=returned_block)
-                print("Returned block:\n", returned_block)
+                print("\nReturned block:", returned_block)
 
         elif data.startswith("bcu:"):
             print("bcu received:")
@@ -68,35 +69,28 @@ def listen():
 def receive_client():
     while True:
         data = sock.recv(1024).decode()
-        print(data)
         if data == "AKK":
             print("Rendevous server is finished propagating\n")
-            break
 
         ip, sport, dport = data.split(" ")
-        print("receiveing client\n")
-        print("IP:", ip)
 
         sport = int(sport)
         dport = int(dport)
         client = ip, sport, dport
 
-        print("printing client:", client)
-
         if client not in clients:
             bc_client.add_clients(client)
             clients.append(client)
             print("BC clients list:", bc_client.clients)
-        elif client in clients:
-            sock.sendto(b"AKK\n", rendevous_server)
-
-        print("\nGot peers")
-        for client in clients:
             print("ip:{}".format(client[0]))
             print("sport:{}".format(client[1]))
             print("dport:{}\n".format(client[2]))
-        print("Punching hole...")
-        print("Data exchange is ready\n")
+            print("Punching hole...")
+            print("Data exchange is ready\n")
+            continue
+
+        elif client in clients:
+            sock.sendto(b"AKK\n", rendevous_server)
 
 
 listener = threading.Thread(target=listen, daemon=True)
@@ -110,8 +104,6 @@ while True:
     if data.strip() == "AKK":
         print("checked in with server, waiting")
         break
-
-print("Waiting to receive other client addresses")
 
 receiver.start()
 listener.start()
@@ -169,8 +161,11 @@ while True:
             print(block)
     elif msg == "show_nodes":
         print(list(show_nodes()))
-    elif msg == "new_propagation":
-        break
+    elif msg == "create wallet":
+        own_wallet = wallet()
+        own_wallet.private_key
+        own_wallet.public_key
+        own_wallet.key_base
     elif msg.startswith("tx:"):
         tx_tuple = test_tx()
         tx = tx_tuple

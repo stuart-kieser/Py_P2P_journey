@@ -1,7 +1,9 @@
 from hashlib import sha256
-from typing import Optional
+import hashlib
+from typing import Optional, Tuple
 import time
 import queue
+import random
 
 gENESIS_HASH = "0" * 64
 
@@ -104,6 +106,9 @@ class Blockchain:
             return True
 
 
+# block pool collects each block to be mined and i used in verification of blocks
+
+
 class BlockPool:
     def __init__(self, block_pool=[]):
         self.block_pool = block_pool
@@ -114,18 +119,17 @@ class BlockPool:
         print(f"blockpool updated:\n")
 
         if len(self.block_pool) == (len(bc_client.clients) + 1):
-            validation(self)
+            self.validation()
             return
 
-
-def validation(self):
-    print("Block Pool size:", len(self.block_pool))
-    print("Client list size:", (len(bc_client.clients) + 1), "\n")
-    max_timestamp = max(self.block_pool, key=lambda b: float(b.timestamp))
-    blockchain.add(max_timestamp)
-    self.block_pool.clear()
-    print("Block minted:", max_timestamp)
-    return
+    def validation(self):
+        print("Block Pool size:", len(self.block_pool))
+        print("Client list size:", (len(bc_client.clients) + 1), "\n")
+        max_timestamp = max(self.block_pool, key=lambda b: float(b.timestamp))
+        blockchain.add(max_timestamp)
+        self.block_pool.clear()
+        print("Block minted:", max_timestamp)
+        return
 
 
 class Clients:
@@ -138,6 +142,46 @@ class Clients:
     def add_clients(self, client):
         self.clients.append(client)
         print("client added on blockchain side")
+
+
+class Wallet:
+    def __init__(self, private_key=None, public_key=None, balance=0) -> None:
+        self.private_key = private_key or self.generate_keys()
+        self.public_key = public_key
+        self.balance = self.get_balance(public_key)
+
+    def generate_keys(self) -> Optional[tuple[str, str]]:
+        while True:
+            key_base = random.randint(
+                100000000000000000000, 50000000000000000000000000000
+            )
+            private_key_hash = hashlib.sha256(str(key_base).encode()).hexdigest()
+            public_key_hash = hashlib.sha256(
+                str(private_key_hash + str(key_base)).encode()
+            ).hexdigest()
+            if public_key_hash.startswith("f0"):
+                break
+        print(
+            "Public key:",
+            public_key_hash,
+            "\nKey base:",
+            key_base,
+            "\nPrivate key:",
+            private_key_hash,
+            "\n",
+        )
+        return public_key_hash, private_key_hash, key_base
+
+    def get_balance(self, public_key):
+        balance = 0
+        for block in blockchain.chain:
+            for data in block:
+                for tx in data:
+                    if public_key is tx[2]:
+                        balance = +tx[1]
+                    if public_key is tx[0]:
+                        balance = -tx[1]
+                        return print(balance)
 
 
 def main(args):
@@ -158,18 +202,7 @@ def main(args):
     return block
 
 
-def bc_update():
-    num = len(blockchain.chain)
-    while True:
-        new_num = len(blockchain.chain)
-        if new_num > num:
-            new_num = num
-        try:
-            return blockchain.chain[-1]
-        except IndexError:
-            return None
-
-
 blockchain = Blockchain()
 blockpool = BlockPool()
 bc_client = Clients()
+wallet = Wallet()

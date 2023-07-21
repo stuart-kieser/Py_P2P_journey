@@ -1,6 +1,6 @@
 import socket
 import threading
-import random
+from tests_p2p import test_tx
 from blockchain import (
     Block,
     wallet,
@@ -24,6 +24,7 @@ sock.sendto(b"55555", rendevous_server)
 print(f"Binding on port: {PORT}, sending bytes to: {rendevous_server}")
 
 
+# start the server off listening
 def listen():
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server.bind(("localhost", PORT))
@@ -32,6 +33,7 @@ def listen():
 
     while True:
         data = server.recv(1024).decode("utf-8")
+        # signifies new tx update
         if data.startswith("tx:"):
             info, sender, amount, receiver = data.split(":")
             tx = sender, amount, receiver
@@ -48,6 +50,7 @@ def listen():
                 broad_cast_new_block(block=returned_block)
                 print("\nReturned block:", returned_block)
 
+        # signifies block chain update
         elif data.startswith("bcu:"):
             print("bcu received:")
             print(data, "\n")
@@ -66,6 +69,7 @@ def listen():
         bc_main_flag = True
 
 
+# waits for clients to be propagated
 def receive_client():
     while True:
         data = sock.recv(1024).decode()
@@ -82,33 +86,10 @@ def receive_client():
             bc_client.add_clients(client)
             clients.append(client)
             print("BC clients list:", bc_client.clients)
-            print("ip:{}".format(client[0]))
-            print("sport:{}".format(client[1]))
-            print("dport:{}\n".format(client[2]))
-            print("Punching hole...")
-            print("Data exchange is ready\n")
             continue
 
         elif client in clients:
             sock.sendto(b"AKK\n", rendevous_server)
-
-
-listener = threading.Thread(target=listen, daemon=True)
-receiver = threading.Thread(target=receive_client, daemon=True)
-
-while True:
-    data = sock.recv(1024).decode()
-    print(f"receving data:\n")
-    print(data)
-
-    if data.strip() == "AKK":
-        print("checked in with server, waiting")
-        break
-
-receiver.start()
-listener.start()
-
-print("Listening for BC updates:")
 
 
 def show_nodes():
@@ -136,7 +117,6 @@ def broad_cast_new_block(block):
     )
     msg = bcu
 
-    print(f"broadcasting new block\n")
     print(f"block to broadcast: {msg}\n")
     for client in clients:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -144,14 +124,22 @@ def broad_cast_new_block(block):
         client_socket.close()
 
 
-def test_tx():
-    amount = random.randint(10, 100)
-    accounts = ["abc", "def", "ghi", "qwd", "gtr"]
-    first_account = random.choice(accounts)
-    remaining_accounts = [account for account in accounts if account != first_account]
-    second_account = random.choice(remaining_accounts)
-    tx = str(first_account), str(amount), str(second_account)
-    return tx
+listener = threading.Thread(target=listen, daemon=True)
+receiver = threading.Thread(target=receive_client, daemon=True)
+
+while True:
+    data = sock.recv(1024).decode()
+    print(f"receving data:\n")
+    print(data)
+
+    if data.strip() == "AKK":
+        print("checked in with server, waiting")
+        break
+
+receiver.start()
+listener.start()
+
+print("Listening for BC updates:")
 
 
 while True:

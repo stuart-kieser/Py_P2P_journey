@@ -9,6 +9,7 @@ gENESIS_HASH = "0" * 64
 
 tx_pool = queue.Queue(maxsize=0)
 tx_list = []
+walletaddr = []
 
 
 def update_hash(*args):
@@ -24,6 +25,13 @@ def update_hash(*args):
 
 def add_tx_to_pool(args):
     tx_pool.put(args)
+
+
+def wallet_addrs(arg):
+    if arg in walletaddr:
+        return True
+    else:
+        return False
 
 
 class Block:
@@ -82,6 +90,9 @@ class Blockchain:
         self.chain.append(block)
 
     def mine(self, block):
+        struct_time = time.localtime()
+        minestamp = time.mktime(struct_time)
+        print(f"Mining start time: {minestamp}\n")
         try:
             block.previous = self.chain[-1].get_hash()
         except IndexError:
@@ -89,8 +100,24 @@ class Blockchain:
 
         while True:
             if block.get_hash()[: self.difficulty] == "0" * self.difficulty:
-                blockpool.add(block)
-                break
+                timestamp = (
+                    time.time()
+                )  # Get the current timestamp in seconds since the epoch
+                time_difference_minutes = (timestamp - block.timestamp) / 60
+                print(time_difference_minutes)
+                if time_difference_minutes < 4:
+                    print(block.nonce)
+                    self.difficulty += 1
+                    block.nonce = 0
+                    print(f"new diff: {self.difficulty}")
+                elif time_difference_minutes > 5:
+                    print(block.nonce)
+                    self.difficulty -= 1
+                    block.nonce = 0
+                    print(f"new diff: {self.difficulty}")
+                else:
+                    blockpool.add(block)
+                    break
             else:
                 block.nonce += 1
 
@@ -119,12 +146,12 @@ class BlockPool:
         print(f"blockpool updated:\n")
 
         if len(self.block_pool) == (len(bc_client.clients) + 1):
+            print("Block Pool size:", len(self.block_pool))
+            print("Client list size:", (len(bc_client.clients) + 1), "\n")
             self.validation()
             return
 
     def validation(self):
-        print("Block Pool size:", len(self.block_pool))
-        print("Client list size:", (len(bc_client.clients) + 1), "\n")
         max_timestamp = max(self.block_pool, key=lambda b: float(b.timestamp))
         blockchain.add(max_timestamp)
         self.block_pool.clear()
@@ -161,15 +188,6 @@ class Wallet:
             ).hexdigest()
             if public_key_hash.startswith("f0"):
                 break
-        print(
-            "Public key:",
-            public_key_hash,
-            "\nKey base:",
-            key_base,
-            "\nPrivate key:",
-            private_key_hash,
-            "\n",
-        )
         return public_key_hash, private_key_hash, key_base
 
     def get_balance(self, public_key):
@@ -181,15 +199,14 @@ class Wallet:
                         balance = +tx[1]
                     if public_key is tx[0]:
                         balance = -tx[1]
-                        return print(balance)
+        return balance
+
+    def __str__(self) -> str:
+        print(f"\nPublic_key: {self.public_key}")
+        print(f"\nBalance   : {self.balance}")
 
 
 def main(args):
-    struct_time = time.localtime()
-    timestamp = time.mktime(struct_time)
-
-    print(f"Mining start time: {timestamp}\n")
-
     num = len(blockchain.chain)
     tx_list.append(args)
 
@@ -205,4 +222,3 @@ def main(args):
 blockchain = Blockchain()
 blockpool = BlockPool()
 bc_client = Clients()
-wallet = Wallet()

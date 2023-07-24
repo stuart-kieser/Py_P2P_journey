@@ -57,11 +57,10 @@ there are fine tuned ways of fetching data such as filtering
 
 # create the flask app
 app = Flask(__name__)
-app.permanent_session_lifetime = timedelta(days=7)
+app.permanent_session_lifetime = timedelta(seconds=2)
 
 # initialize db
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///mydb.db"
-
 db = SQLAlchemy(app)
 
 
@@ -80,10 +79,14 @@ class Person(db.Model):
     age = db.Column("age", db.Integer)
     password = db.Column("password", db.String)
 
-    """ create object to insert into database, new entries will use this object to be unique"""
+    def __init__(self, firstname, lastname, age, password):
+        self.firstname = firstname
+        self.lastname = lastname
+        self.age = age
+        self.password = password
 
 
-db.init_app(app)
+""" create object to insert into database, new entries will use this object to be unique"""
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -115,7 +118,9 @@ def register():
         lname = request.form["lname_"]
         age = request.form["age_"]
         password = request.form["password_"]
-        users_ = db.Query(Person).all()
+        users_ = db.session.query(
+            Person.firstname, Person.lastname, Person.password
+        ).all()
         user_ = Person(fname, lname, age, password)
         if user_ in users_:
             return redirect(url_for("login"))
@@ -136,9 +141,10 @@ def user(usr):
 def data_base():
     results = db.session.query(Person.firstname, Person.lastname, Person.password).all()
     print(results)
-    session
     return render_template("_database.html", results=results)
 
 
 if __name__ == "__main__":
     app.run(debug=True)
+    with app.app_context():
+        db.create_all()

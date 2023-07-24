@@ -25,6 +25,7 @@ def show_nodes():
     return nodes
 
 
+# creates block from incoming tx: data
 def broad_cast_new_block(block):
     number = block.number
     data = block.data
@@ -84,9 +85,33 @@ def handle_client(clientsocket, addr):
             add_tx_to_pool(tx)
 
             if bc_main_flag:
-                returned_block = main(tx)
                 broad_cast_new_block(block=returned_block)
+                returned_block = main(tx)
                 print("\nReturned block:", returned_block)
+
+        # signifies block chain update
+        elif data.startswith("bcu:"):
+            print(f"bcu received: {data}\n")
+            (
+                info,
+                number,
+                received_data,
+                previous_hash,
+                nonce,
+                timestamp,
+                node,
+            ) = data.split(":")
+            info = str(info)
+            number = int(number)
+            received_data = str(received_data)
+            previous_hash = str(previous_hash)
+            nonce = int(nonce)
+            timestamp = str(timestamp)
+            node = str(node)
+            bcu_block = Block(number, previous_hash, received_data, 0, timestamp)
+            blockchain.mine(bcu_block)
+            bc_main_flag = False
+        bc_main_flag = True
 
 
 def client():
@@ -111,6 +136,7 @@ def client():
         ip, port = data.split(" ")
         node = str(ip), int(port)
         if node not in nodes:
+            bc_client.add_clients(node)
             nodes.append(node)
             print(f"DATA:{node}")
         else:

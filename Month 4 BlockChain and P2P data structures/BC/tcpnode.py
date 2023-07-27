@@ -10,9 +10,13 @@ from blockchain import (
     blockpool as blockpool,
     add_tx_to_pool,
     main,
+    add_wallet,
+    wallet_addrs,
 )
 
+
 nodes = []
+
 
 clients_got = False
 
@@ -72,26 +76,50 @@ def handle_client(clientsocket, addr):
         data = clientsocket.recv(1024).decode("utf-8")
         # signifies new tx update
         if data.startswith("tx:"):
-            print(f"DATA:{data}")
+            print(f"DATA:{data}\n")
             info, sender, amount, receiver, node = data.split(":")
-            tx = sender, amount, receiver
             info = str(info)
             sender = str(sender)
             amount = int(amount)
             receiver = str(receiver)
             node = str(node)
+            tx = sender, amount, receiver
 
             print(f"New transaction:{tx, type(tx)}\n")
             add_tx_to_pool(tx)
 
             if bc_main_flag:
                 broad_cast_new_block(block=returned_block)
+
+                # mustnt be be only data, filter data out of tx list and pool
                 returned_block = main(tx)
+
                 print("\nReturned block:", returned_block)
+
+        # new public key registration
+        elif data.startswith("public_keyr:"):
+            print(f"DATA:{data}\n")
+            info, public_key = data.split(":")
+            info = str(info)
+            public_key = str(public_key)
+            tx = info, public_key
+            # check if key exists in bc history
+            wallet_addrs(public_keyn)
+            print(f"public key request:{tx, type(tx)}\n")
+
+        elif data.startswith("public_keyn:"):
+            print(f"DATA:{data}\n")
+            info, public_keyn = data.split(":")
+            info = str(info)
+            public_key = str(public_key)
+            tx = info, public_key
+
+            add_tx_to_pool(tx)
+            add_wallet(public_key)
 
         # signifies block chain update
         elif data.startswith("bcu:"):
-            print(f"bcu received: {data}\n")
+            print(f"DATA:{data}\n")
             (
                 info,
                 number,
@@ -111,7 +139,6 @@ def handle_client(clientsocket, addr):
             bcu_block = Block(number, previous_hash, received_data, 0, timestamp)
             blockchain.mine(bcu_block)
             bc_main_flag = False
-        bc_main_flag = True
 
 
 def client():
@@ -157,35 +184,39 @@ def broadcast_to_clients(msg):
 
 sthread = threading.Thread(target=server)
 cthread = threading.Thread(target=client)
+bcthread = threading.Thread(target=main)
 
 sthread.start()
 cthread.start()
 
 time.sleep(1)
-while True:
-    msg = input(">")
-    if msg == "show_bc":
-        for block in blockchain.chain:
-            print(block)
-    elif msg == "show_nodes":
-        print(list(show_nodes()))
-    elif msg == "create wallet":
-        own_wallet = wallet()
-        own_wallet.private_key
-        own_wallet.public_key
-        own_wallet.key_base
-    elif msg.startswith("tx:"):
-        tx_tuple = test_tx()
-        tx = tx_tuple
-        for data in tx:
-            first_account, amount, second_account = tx
-        add_tx_to_pool(tx)
-        tx = str(first_account) + ":" + str(amount) + ":" + str(second_account)
-        msg_tx = msg + tx
-        print(f"New transaction:{msg_tx, type(tx)}\n")
-        broadcast_to_clients(msg_tx)
 
-        if True:
-            returned_block = main(tx_tuple)
-            broad_cast_new_block(returned_block)
-            print("Returned block:\n", returned_block)
+
+def server_main():
+    while True:
+        msg = input(">")
+        if msg == "bc":
+            bcthread.start()
+        elif msg == "show_bc":
+            for block in blockchain.chain:
+                print(block)
+        elif msg == "show_nodes":
+            print(list(show_nodes()))
+        elif msg == "create wallet":
+            own_wallet = wallet()
+            own_wallet.private_key
+            own_wallet.public_key
+            own_wallet.key_base
+        elif msg.startswith("tx:"):
+            tx_tuple = test_tx()
+            tx = tx_tuple
+            first_account, amount, second_account = tx
+            add_tx_to_pool(tx)
+            tx = str(first_account) + ":" + str(amount) + ":" + str(second_account)
+            msg_tx = msg + tx
+            print(f"New transaction:{msg_tx, type(tx)}\n")
+            broadcast_to_clients(msg_tx)
+
+
+if __name__ == "__main__":
+    server_main()

@@ -7,9 +7,8 @@ import random
 
 gENESIS_HASH = "0" * 64
 
-tx_pool = queue.Queue(maxsize=0)
-tx_list = []
 walletaddr = []
+tx_pool = []
 
 
 def update_hash(*args):
@@ -24,7 +23,7 @@ def update_hash(*args):
 
 
 def add_tx_to_pool(args):
-    tx_pool.put(args)
+    tx_pool.append(args)
 
 
 def wallet_addrs(arg):
@@ -32,6 +31,11 @@ def wallet_addrs(arg):
         return True
     else:
         return False
+
+
+def add_wallet(args):
+    walletaddr.append(args)
+    return args
 
 
 class Block:
@@ -43,12 +47,29 @@ class Block:
     nonce: Optional[int]
     timestamp: float
 
-    def __init__(self, number=0, previous=None, data=any, nonce=0, timestamp=None):
+    def __init__(self, number=0, previous=None, data=[], nonce=0, timestamp=None):
         self.number = number
-        self.data = data
+        self.data = self.build_data()
         self.previous = previous
         self.nonce = nonce
         self.timestamp = timestamp or self.get_timestamp()
+
+    def build_data(self):
+        data = []
+        try:
+            for tx in tx_pool:
+                for i in range(10):
+                    if tx not in data:
+                        data.append(tx)
+                        tx_pool.remove(tx)
+                    else:
+                        None
+            return data
+
+        except:
+            if tx_pool is None:
+                data = "NO TRANSACTIONS"
+            return data
 
     def get_previous_hash(self):
         if self.previous is None or IndexError:
@@ -86,10 +107,8 @@ class Blockchain:
     def __init__(self, chain=[]):
         self.chain = chain
 
-    def add(self, block):
-        self.chain.append(block)
-
-    def mine(self, block):
+    def mine(self):
+        block = Block(number=(len(self.chain)))
         struct_time = time.localtime()
         minestamp = time.mktime(struct_time)
         print(f"Mining start time: {minestamp}\n")
@@ -100,24 +119,32 @@ class Blockchain:
 
         while True:
             if block.get_hash()[: self.difficulty] == "0" * self.difficulty:
-                timestamp = (
-                    time.time()
-                )  # Get the current timestamp in seconds since the epoch
-                time_difference_minutes = (timestamp - block.timestamp) / 60
+                # Get the current timestamp in seconds since the epoch
+                timestamp = time.time()
+                time_difference_minutes = (timestamp - minestamp) / 60
                 print(time_difference_minutes)
-                if time_difference_minutes < 4:
+
+                if time_difference_minutes < float(3):
                     print(block.nonce)
-                    self.difficulty += 1
-                    block.nonce = 0
-                    print(f"new diff: {self.difficulty}")
-                elif time_difference_minutes > 5:
+                    self.difficulty += 0
+                    print(f"increase diff: {self.difficulty}")
+                    blockpool.add(block)
+                    #
+                    # remember to take this away
+                    #
+                    break
+
+                elif time_difference_minutes > float(5):
                     print(block.nonce)
                     self.difficulty -= 1
-                    block.nonce = 0
-                    print(f"new diff: {self.difficulty}")
+                    print(f"decrease diff: {self.difficulty}")
+                    blockpool.add(block)
+                    break
+
                 else:
                     blockpool.add(block)
                     break
+
             else:
                 block.nonce += 1
 
@@ -132,6 +159,10 @@ class Blockchain:
                 return False
             return True
 
+    def add(self, block):
+        self.chain.append(block)
+        return
+
 
 # block pool collects each block to be mined and i used in verification of blocks
 
@@ -141,13 +172,12 @@ class BlockPool:
         self.block_pool = block_pool
 
     def add(self, block):
-        self.block = block
         self.block_pool.append(block)
         print(f"blockpool updated:\n")
+        print("Block Pool size:", len(self.block_pool))
+        print("Client list size:", (len(bc_client.clients) + 1), "\n")
 
         if len(self.block_pool) == (len(bc_client.clients) + 1):
-            print("Block Pool size:", len(self.block_pool))
-            print("Client list size:", (len(bc_client.clients) + 1), "\n")
             self.validation()
             return
 
@@ -156,7 +186,7 @@ class BlockPool:
         blockchain.add(max_timestamp)
         self.block_pool.clear()
         print("Block minted:", max_timestamp)
-        return
+        return self
 
 
 class Clients:
@@ -172,12 +202,11 @@ class Clients:
 
 
 class Wallet:
-    def __init__(self, private_key=None, public_key=None, balance=0) -> None:
-        self.private_key = private_key or self.generate_keys()
+    def __init__(self, public_key=None, balance=0):
         self.public_key = public_key
-        self.balance = self.get_balance(public_key)
+        self.balance = balance or self.get_balance(public_key)
 
-    def generate_keys(self) -> Optional[tuple[str, str]]:
+    def generate_keys(self) -> str:
         while True:
             key_base = random.randint(
                 100000000000000000000, 50000000000000000000000000000
@@ -188,37 +217,26 @@ class Wallet:
             ).hexdigest()
             if public_key_hash.startswith("f0"):
                 break
-        return public_key_hash, private_key_hash, key_base
+        return str(public_key_hash)
 
     def get_balance(self, public_key):
-        balance = 0
         for block in blockchain.chain:
             for data in block:
                 for tx in data:
                     if public_key is tx[2]:
-                        balance = +tx[1]
+                        self.balance = +tx[1]
                     if public_key is tx[0]:
-                        balance = -tx[1]
-        return balance
-
-    def __str__(self) -> str:
-        print(f"\nPublic_key: {self.public_key}")
-        print(f"\nBalance   : {self.balance}")
-
-
-def main(args):
-    num = len(blockchain.chain)
-    tx_list.append(args)
-
-    print(f"BLOCK ARGS: {type(args)}\n")
-    print(f"transaction list: {tx_list}\n")
-
-    block = Block(num, None, args, 0, None)
-    blockchain.mine(block)
-
-    return block
+                        self.balance = -tx[1]
+            return self.balance
 
 
 blockchain = Blockchain()
 blockpool = BlockPool()
 bc_client = Clients()
+wallet = Wallet()
+
+
+def main():
+    global blockchain
+    while True:
+        blockchain.mine()

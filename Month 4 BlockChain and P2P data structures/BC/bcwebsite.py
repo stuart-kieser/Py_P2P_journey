@@ -1,8 +1,7 @@
-import socket
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-from datetime import timedelta
-from blockchain import Wallet, Blockchain, wallet_addrs
-from rdvtcp import new_wallet_addr, nodes
+from flask import Flask, render_template, request, redirect, url_for
+
+from rdvtcp import new_message, nodes, rendevous
+
 
 app = Flask(__name__)
 # setting up BC interface, create wallet, send txs, receive txs
@@ -11,25 +10,39 @@ app = Flask(__name__)
 @app.route("/", methods=["POST", "GET"])
 def home():
     if request.method == "POST":
-        selfwallet = your_wallet()
-        # send wallet address to rdvserver
-        own_public_key = selfwallet.public_key
-        print(selfwallet)
-        new_wallet_addr(public_key=own_public_key)
-        return redirect(url_for("wallet", own_public_key))
+        created_wallet = generate_wallet()
+        print("BCweb sending message")
+        new_message("public_keyn:" + str(created_wallet))
+        return redirect(url_for("wallet", public_key=created_wallet))
+
+    if request.method == "GET":
+        public_key = request.args.get("public_key")
+        located_key = new_message("public_keyr:" + str(public_key))
+        print(f"located key not found: {located_key}")
+        if located_key:
+            return redirect(url_for("wallet", public_key=public_key))
     return render_template("home.html")
 
 
-@app.route("/wallet/<public_key>", methods=["GET"])
+@app.route("/wallet/<public_key>", methods=["GET", "POST"])
 def wallet(public_key):
-    return render_template("wallet.html")
+    wallet_balance = balance(public_key)
+    new_message("bal" + str(public_key))
+    return render_template(
+        "wallet.html", public_key=public_key, wallet_balance=wallet_balance
+    )
     # with in the wallet you have buy sell and send functions
 
 
-def your_wallet():
-    wallet = Wallet()
+def generate_wallet():
+    wallet = Wallet.generate_keys(self=True)
     return wallet
 
 
+def balance(arg):
+    balance = Wallet.get_balance(self=True, public_key=arg)
+    return balance
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=8000)

@@ -1,0 +1,5 @@
+1. rdv start up
+2. tcp node start up
+3. website start up 
+/////////////////////
+

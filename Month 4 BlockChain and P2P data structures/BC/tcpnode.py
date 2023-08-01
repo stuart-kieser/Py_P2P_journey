@@ -10,7 +10,6 @@ from blockchain import (
     blockpool as blockpool,
     add_tx_to_pool,
     main,
-    add_wallet,
     wallet_addrs,
 )
 
@@ -70,7 +69,6 @@ def server():
 
 
 def handle_client(clientsocket, addr):
-    connected = True
     bc_main_flag = True
     while True:
         data = clientsocket.recv(1024).decode("utf-8")
@@ -88,14 +86,6 @@ def handle_client(clientsocket, addr):
             print(f"New transaction:{tx, type(tx)}\n")
             add_tx_to_pool(tx)
 
-            if bc_main_flag:
-                broad_cast_new_block(block=returned_block)
-
-                # mustnt be be only data, filter data out of tx list and pool
-                returned_block = main(tx)
-
-                print("\nReturned block:", returned_block)
-
         # new public key registration
         elif data.startswith("public_keyr:"):
             print(f"DATA:{data}\n")
@@ -103,6 +93,7 @@ def handle_client(clientsocket, addr):
             info = str(info)
             public_key = str(public_key)
             tx = info, public_key
+
             # check if key exists in bc history
             wallet_addrs(public_keyn)
             print(f"public key request:{tx, type(tx)}\n")
@@ -114,8 +105,9 @@ def handle_client(clientsocket, addr):
             public_key = str(public_key)
             tx = info, public_key
 
+            # add wallet to tx
             add_tx_to_pool(tx)
-            add_wallet(public_key)
+            wallet.add_wallet(public_key)
 
         # signifies block chain update
         elif data.startswith("bcu:"):
@@ -140,6 +132,9 @@ def handle_client(clientsocket, addr):
             blockchain.mine(bcu_block)
             bc_main_flag = False
 
+        elif data == "bc":
+            bcthread.start()
+
 
 def client():
     # create client socket to communicate with server
@@ -160,14 +155,14 @@ def client():
     connected = True
     while connected:
         data = csock.recv(HEADER).decode()
-        ip, port = data.split(" ")
-        node = str(ip), int(port)
-        if node not in nodes:
-            bc_client.add_clients(node)
-            nodes.append(node)
-            print(f"DATA:{node}")
-        else:
-            time.sleep(3)
+        try:
+            ip, port = data.split(" ")
+            node = str(ip), int(port)
+            if node not in nodes:
+                bc_client.add_clients(node)
+                nodes.append(node)
+                print(f"DATA:{node}")
+        except ValueError:
             connected = False
 
 
@@ -195,18 +190,19 @@ time.sleep(1)
 def server_main():
     while True:
         msg = input(">")
-        if msg == "bc":
-            bcthread.start()
-        elif msg == "show_bc":
+        if msg == "show_bc":
             for block in blockchain.chain:
                 print(block)
+
         elif msg == "show_nodes":
             print(list(show_nodes()))
+
         elif msg == "create wallet":
             own_wallet = wallet()
             own_wallet.private_key
             own_wallet.public_key
             own_wallet.key_base
+
         elif msg.startswith("tx:"):
             tx_tuple = test_tx()
             tx = tx_tuple

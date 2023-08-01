@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for
 
-from rdvtcp import new_message, nodes, rendevous
+from rdvtcp import new_message
+from blockchain import Wallet
 
 
 app = Flask(__name__)
@@ -42,7 +43,3 @@ def generate_wallet():
 def balance(arg):
     balance = Wallet.get_balance(self=True, public_key=arg)
     return balance
-
-
-if __name__ == "__main__":
-    app.run(debug=True, port=8000)

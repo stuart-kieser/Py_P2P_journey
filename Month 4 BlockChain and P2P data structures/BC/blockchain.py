@@ -2,7 +2,6 @@ from hashlib import sha256
 import hashlib
 from typing import Optional, Tuple
 import time
-import queue
 import random
 
 gENESIS_HASH = "0" * 64
@@ -31,11 +30,6 @@ def wallet_addrs(arg):
         return True
     else:
         return False
-
-
-def add_wallet(args):
-    walletaddr.append(args)
-    return args
 
 
 class Block:
@@ -118,21 +112,22 @@ class Blockchain:
             pass
 
         while True:
+            timestamp = time.time()
+
             if block.get_hash()[: self.difficulty] == "0" * self.difficulty:
                 # Get the current timestamp in seconds since the epoch
                 timestamp = time.time()
                 time_difference_minutes = (timestamp - minestamp) / 60
                 print(time_difference_minutes)
-
                 if time_difference_minutes < float(3):
+                    self.difficulty += 1
                     print(block.nonce)
-                    self.difficulty += 0
                     print(f"increase diff: {self.difficulty}")
-                    blockpool.add(block)
+                    block.nonce = 0
+                    return
                     #
                     # remember to take this away
                     #
-                    break
 
                 elif time_difference_minutes > float(5):
                     print(block.nonce)
@@ -141,8 +136,16 @@ class Blockchain:
                     blockpool.add(block)
                     break
 
+                elif time_difference_minutes > float(7):
+                    print(block.nonce)
+                    self.difficulty -= 3
+                    print(f"decrease diff: {self.difficulty}")
+                    blockpool.add(block)
+                    break
+
                 else:
                     blockpool.add(block)
+                    self.difficulty -= 2
                     break
 
             else:
@@ -229,6 +232,34 @@ class Wallet:
                         self.balance = -tx[1]
             return self.balance
 
+    def add_wallet(public_key):
+        walletaddr.append(public_key)
+        return public_key
+
+
+class Transaction:
+    def __init__(self, sender, amount, recipient):
+        self.sender = sender
+        self.recipient = recipient
+        self.amount = amount
+
+    def valid_address(self, arg):
+        if arg in walletaddr:
+            return True
+        else:
+            return False
+
+    def valid_amount(self, arg, amount):
+        amount = 0
+        for block in blockchain.chain:
+            for block.data in block:
+                for tx in block.data:
+                    if len(tx) == 2:
+                        if tx[0] == arg:
+                            amount += tx[1]
+                        if tx[2] == arg:
+                            amount -= tx[1]
+
 
 blockchain = Blockchain()
 blockpool = BlockPool()
@@ -240,3 +271,7 @@ def main():
     global blockchain
     while True:
         blockchain.mine()
+
+
+if __name__ == "__main__":
+    main()

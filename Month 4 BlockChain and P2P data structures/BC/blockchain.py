@@ -4,9 +4,11 @@ from typing import Optional, Tuple
 import time
 import random
 
+
 gENESIS_HASH = "0" * 64
 
 walletaddr = []
+nodes = []
 tx_pool = []
 
 
@@ -96,7 +98,7 @@ class Block:
 
 
 class Blockchain:
-    difficulty = 5
+    difficulty = 6
 
     def __init__(self, chain=[]):
         self.chain = chain
@@ -120,14 +122,12 @@ class Blockchain:
                 time_difference_minutes = (timestamp - minestamp) / 60
                 print(time_difference_minutes)
                 if time_difference_minutes < float(3):
-                    self.difficulty += 1
+                    self.difficulty += 0  # change to 1
                     print(block.nonce)
                     print(f"increase diff: {self.difficulty}")
-                    block.nonce = 0
-                    return
-                    #
-                    # remember to take this away
-                    #
+                    blockpool.add(block)
+                    break
+                    # block.nonce = 0
 
                 elif time_difference_minutes > float(5):
                     print(block.nonce)
@@ -185,11 +185,17 @@ class BlockPool:
             return
 
     def validation(self):
+        for block in blockpool.block_pool:
+            for other_block in blockpool.block_pool:
+                block != other_block
+                if block.data != other_block.data:
+                    self.block_pool.pop(other_block)
+
         max_timestamp = max(self.block_pool, key=lambda b: float(b.timestamp))
         blockchain.add(max_timestamp)
         self.block_pool.clear()
         print("Block minted:", max_timestamp)
-        return self
+        return
 
 
 class Clients:
@@ -206,8 +212,8 @@ class Clients:
 
 class Wallet:
     def __init__(self, public_key=None, balance=0):
-        self.public_key = public_key
-        self.balance = balance or self.get_balance(public_key)
+        self.public_key = public_key or self.generate_keys()
+        self.balance = balance or self.get_balance(self.public_key)
 
     def generate_keys(self) -> str:
         while True:
@@ -226,10 +232,11 @@ class Wallet:
         for block in blockchain.chain:
             for data in block:
                 for tx in data:
-                    if public_key is tx[2]:
-                        self.balance = +tx[1]
-                    if public_key is tx[0]:
-                        self.balance = -tx[1]
+                    if len(tx) == 2:
+                        if tx[0] == public_key:
+                            self.balance += tx[1]
+                        if tx[2] == public_key:
+                            self.balance -= tx[1]
             return self.balance
 
     def add_wallet(public_key):
@@ -260,8 +267,12 @@ class Transaction:
                         if tx[2] == arg:
                             amount -= tx[1]
 
+    def __repr__(self) -> str:
+        f"{self.sender}:{self.amount}:{self.recipient}"
+
 
 blockchain = Blockchain()
+block = Block()
 blockpool = BlockPool()
 bc_client = Clients()
 wallet = Wallet()

@@ -1,5 +1,6 @@
 import tkinter as tk
-from blockchain import wallet
+from blockchain import wallet, blockchain
+import rdvtcp
 
 FONT = ("Arial", 18)
 
@@ -8,27 +9,38 @@ root = tk.Tk()
 root.geometry("1000x500")
 root.title("BC GUI")
 
-label = tk.Label(root, text="Start node.", font=FONT)
-label.pack(padx=20, pady=20)
-
-textbox = tk.Text(root, height=3, font=FONT)
-textbox.pack()
-
-button = tk.Button(root, text="START NODE", font=FONT, command=wallet.generate_keys)
-button.pack()
+grid = tk.Grid()
 
 
-buttonframe = tk.Frame()
-buttonframe.columnconfigure(0, weight=1)
-buttonframe.columnconfigure(1, weight=1)
-buttonframe.columnconfigure(2, weight=1)
+node = tk.Button(
+    command=rdvtcp.rdvthread.start(),
+    height=2,
+    width=20,
+    state="active",
+    font=("Arial", 12),
+    text="Start node?",
+)
+node.pack(side="left")
 
-btn1 = tk.Button(buttonframe, text="1", font=FONT)
-btn1.grid(row=0, column=0, sticky=tk.W + tk.E)
+wallet = tk.Button(
+    command=wallet.generate_keys(),
+    height=2,
+    width=20,
+    state="active",
+    font=("Arial", 12),
+    text="Create a wallet address",
+)
+wallet.pack(side="right")
 
-btn2 = tk.Button(buttonframe, text="2", font=FONT)
-btn2.grid(row=1, column=1, sticky=tk.W + tk.E)
+sendframe = tk.Frame(root)
+sendframe.pack()
 
-buttonframe.pack(fill="x")
+# create send button
+txbtn = tk.Button(sendframe, command=rdvtcp.new_message(args=None))
+txbtn.pack(side="right")
+
+# create send amount line
+txamt = tk.Entry(sendframe, textvariable=int)
+txamt.pack(side="left")
 
 root.mainloop()

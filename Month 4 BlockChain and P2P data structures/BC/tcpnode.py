@@ -1,25 +1,23 @@
 import socket
 import threading
-import time
-from tests_p2p import test_tx
 from blockchain import (
     Block,
+    block,
+    Wallet,
     wallet,
     blockchain,
     bc_client as bc_client,
     blockpool as blockpool,
     add_tx_to_pool,
-    main,
     wallet_addrs,
+    tx_pool,
 )
 
 
 nodes = []
 
-
-clients_got = False
-
 main_addr = ("localhost", int(input("Select main node port")))
+ip, port = main_addr
 
 HEADER = 128
 
@@ -28,8 +26,8 @@ def show_nodes():
     return nodes
 
 
-# creates block from incoming tx: data
-def broad_cast_new_block(block):
+# creates block to send to clients
+def own_block(block):
     number = block.number
     data = block.data
     previous = block.previous
@@ -69,7 +67,6 @@ def server():
 
 
 def handle_client(clientsocket, addr):
-    bc_main_flag = True
     while True:
         data = clientsocket.recv(1024).decode("utf-8")
         # signifies new tx update
@@ -82,32 +79,34 @@ def handle_client(clientsocket, addr):
             receiver = str(receiver)
             node = str(node)
             tx = sender, amount, receiver
-
             print(f"New transaction:{tx, type(tx)}\n")
-            add_tx_to_pool(tx)
+            if tx not in tx_pool:
+                add_tx_to_pool(tx)
 
         # new public key registration
         elif data.startswith("public_keyr:"):
             print(f"DATA:{data}\n")
-            info, public_key = data.split(":")
+            info, public_key, node = data.split(":")
             info = str(info)
             public_key = str(public_key)
+            node = str(node)
             tx = info, public_key
 
             # check if key exists in bc history
-            wallet_addrs(public_keyn)
-            print(f"public key request:{tx, type(tx)}\n")
+            wallet_addrs(public_key)
+            print(f"public key registration:{tx, type(tx)}\n")
 
         elif data.startswith("public_keyn:"):
             print(f"DATA:{data}\n")
-            info, public_keyn = data.split(":")
+            info, public_key, node = data.split(":")
             info = str(info)
             public_key = str(public_key)
+            node = str(node)
             tx = info, public_key
 
             # add wallet to tx
             add_tx_to_pool(tx)
-            wallet.add_wallet(public_key)
+            Wallet.add_wallet(public_key)
 
         # signifies block chain update
         elif data.startswith("bcu:"):
@@ -130,10 +129,37 @@ def handle_client(clientsocket, addr):
             node = str(node)
             bcu_block = Block(number, previous_hash, received_data, 0, timestamp)
             blockchain.mine(bcu_block)
-            bc_main_flag = False
+
+        elif data.startswith("NEWNODE:"):
+            prop_bc(clientsocket=clientsocket, addr=addr, data=data)
 
         elif data == "bc":
             bcthread.start()
+
+        else:
+            None
+            print(f"DATA:{data}\n")
+
+
+def prop_bc(clientsocket, addr, data):
+    try:
+        info, ip, port = data.split(" ")
+        node = str(ip), int(port)
+        if node not in nodes:
+            node != main_addr
+            bc_client.add_clients(node)
+            nodes.append(node)
+            print(f"DATA:{node}")
+
+        # intitiate bc migration to new node
+
+        clientsocket.sendall(f"{str(blockchain.chain.__sizeof__())}")
+        data = clientsocket.recv(1024).decode("utf-8")
+        if data == "AKK":
+            clientsocket.sendall(f"{blockchain.chain}".encode("utf-8"))
+
+    except ValueError:
+        connected = False
 
 
 def client():
@@ -152,6 +178,8 @@ def client():
     msg = f"{ip} {port}"
     csock.sendall(f"{msg}".encode("utf-8"))
     # main loop to accept in propagated clients
+    input("Wait for more clients to join")
+    csock.sendall(f"Prop".encode("utf-8"))
     connected = True
     while connected:
         data = csock.recv(HEADER).decode()
@@ -159,15 +187,15 @@ def client():
             ip, port = data.split(" ")
             node = str(ip), int(port)
             if node not in nodes:
+                node != main_addr
                 bc_client.add_clients(node)
                 nodes.append(node)
-                print(f"DATA:{node}")
+                print(f"NODE:{node}")
         except ValueError:
             connected = False
 
 
 def broadcast_to_clients(msg):
-    print("connecting to clients")
     for client in nodes:
         if client != main_addr:
             bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -177,14 +205,44 @@ def broadcast_to_clients(msg):
             bcsock.close()
 
 
+def rdv_msg(args):
+    csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    csock.connect(("localhost", 7000))
+    csock.sendall(f"{args}".encode("utf-8"))
+    csock.close()
+
+
+def bc_sync():
+    for node in nodes:
+        if node != main_addr:
+            bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            bcsock.bind(("localhost", 0))
+            bcsock.connect(node)
+            bcsock.send(f"NEWNODE:{ip}:{port}".encode("utf-8"))
+
+            # await bc migration size
+            response = bcsock.recv(HEADER).decode()
+            response = int(response)
+            bcsock.send(f"AKK:{main_addr}".encode("utf-8"))
+
+            # true migration
+            try:
+                response = bcsock.recv(HEADER).decode()
+                print(f"bc_sync rep:", response)
+
+            except:
+                bcsock.close()
+
+
+def mine_main():
+    while True:
+        blockchain.mine()
+        broadcast_to_clients(block)
+
+
 sthread = threading.Thread(target=server)
 cthread = threading.Thread(target=client)
-bcthread = threading.Thread(target=main)
-
-sthread.start()
-cthread.start()
-
-time.sleep(1)
+bcthread = threading.Thread(target=mine_main)
 
 
 def server_main():
@@ -193,7 +251,8 @@ def server_main():
         if msg == "show_bc":
             for block in blockchain.chain:
                 print(block)
-
+        elif msg == "bc":
+            bcthread.start()
         elif msg == "show_nodes":
             print(list(show_nodes()))
 
@@ -204,8 +263,8 @@ def server_main():
             own_wallet.key_base
 
         elif msg.startswith("tx:"):
-            tx_tuple = test_tx()
-            tx = tx_tuple
+            # tx_tuple = test_tx()
+            # tx = tx_tuple
             first_account, amount, second_account = tx
             add_tx_to_pool(tx)
             tx = str(first_account) + ":" + str(amount) + ":" + str(second_account)
@@ -215,4 +274,6 @@ def server_main():
 
 
 if __name__ == "__main__":
-    server_main()
+    sthread.start()
+    cthread.start()
+    # server_main()

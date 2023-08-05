@@ -12,11 +12,14 @@ nodes_lock = threading.Lock()
 
 def handle_client(clientsock, caddr):
     response = clientsock.recv(HEADER).decode("utf-8")
+    print(response)
     ip, port = response.split(" ")
     client = str(ip), int(port)
 
     print(f"client added: {client}")
-    add_node(client)
+
+    if client not in nodes:
+        add_node(client)
 
     msg = str(response).encode("utf-8")
     msg_len = len(msg)
@@ -24,27 +27,22 @@ def handle_client(clientsock, caddr):
     send_len += b" " * (HEADER - len(send_len))
 
     data = clientsock.recv(HEADER).decode("utf-8")
-    prpthread = threading.Thread(
+    pnthread = threading.Thread(
         target=propagate_nodes, args=(clientsock, caddr), daemon=True
     )
-    if data == "Prop":
-        prpthread.start()
+    if data or response == "Prop":
+        pnthread.start()
 
 
 def propagate_nodes(clientsock, caddr):
-    connected = True
-    while connected:
-        for client in nodes:
-            for other_client in nodes:
-                if client != other_client:
-                    ip, port = other_client
-                    nmsg = f"{ip} {port}".encode("utf-8")
-                    # Remove the brackets and split the string into IP and port components
-                    try:
-                        clientsock.send(nmsg)
-                    except:
-                        ConnectionResetError or ConnectionAbortedError
-                        None
+    for other_client in nodes:
+        ip, port = other_client
+        nmsg = f"{ip} {port}".encode("utf-8")
+        try:
+            print(f"sending: {nmsg}")
+            clientsock.send(nmsg)
+        except ConnectionResetError or ConnectionAbortedError:
+            pass
     print("Propagation done")
 
 

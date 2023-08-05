@@ -98,7 +98,7 @@ class Block:
 
 
 class Blockchain:
-    difficulty = 6
+    difficulty = 5
 
     def __init__(self, chain=[]):
         self.chain = chain
@@ -131,7 +131,7 @@ class Blockchain:
 
                 elif time_difference_minutes > float(5):
                     print(block.nonce)
-                    self.difficulty -= 1
+                    self.difficulty -= 0
                     print(f"decrease diff: {self.difficulty}")
                     blockpool.add(block)
                     break
@@ -177,16 +177,16 @@ class BlockPool:
     def add(self, block):
         self.block_pool.append(block)
         print(f"blockpool updated:\n")
-        print("Block Pool size:", len(self.block_pool))
-        print("Client list size:", (len(bc_client.clients) + 1), "\n")
+        print("Block Pool size:", len(self.block_pool), self.block_pool)
+        print("Client list size:", (len(clients.clients) + 1), "\n")
 
-        if len(self.block_pool) == (len(bc_client.clients) + 1):
+        if len(self.block_pool) == (len(clients.clients) + 1):
             self.validation()
             return
 
     def validation(self):
-        for block in blockpool.block_pool:
-            for other_block in blockpool.block_pool:
+        for block in self.block_pool:
+            for other_block in self.block_pool:
                 block != other_block
                 if block.data != other_block.data:
                     self.block_pool.pop(other_block)
@@ -274,7 +274,7 @@ class Transaction:
 blockchain = Blockchain()
 block = Block()
 blockpool = BlockPool()
-bc_client = Clients()
+clients = Clients()
 wallet = Wallet()
 
 

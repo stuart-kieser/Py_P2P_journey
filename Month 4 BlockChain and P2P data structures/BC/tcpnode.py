@@ -1,12 +1,13 @@
 import socket
 import threading
+import time
 from blockchain import (
     Block,
     block,
     Wallet,
     wallet,
     blockchain,
-    bc_client as bc_client,
+    clients as clients,
     blockpool as blockpool,
     add_tx_to_pool,
     wallet_addrs,
@@ -17,7 +18,7 @@ from blockchain import (
 nodes = []
 
 main_addr = ("localhost", int(input("Select main node port")))
-ip, port = main_addr
+mip, mport = main_addr
 
 HEADER = 128
 
@@ -138,7 +139,6 @@ def handle_client(clientsocket, addr):
 
         else:
             None
-            print(f"DATA:{data}\n")
 
 
 def prop_bc(clientsocket, addr, data):
@@ -147,7 +147,7 @@ def prop_bc(clientsocket, addr, data):
         node = str(ip), int(port)
         if node not in nodes:
             node != main_addr
-            bc_client.add_clients(node)
+            clients.add_clients(node)
             nodes.append(node)
             print(f"DATA:{node}")
 
@@ -157,7 +157,7 @@ def prop_bc(clientsocket, addr, data):
         data = clientsocket.recv(1024).decode("utf-8")
         if data == "AKK":
             clientsocket.sendall(f"{blockchain.chain}".encode("utf-8"))
-
+            return
     except ValueError:
         connected = False
 
@@ -188,7 +188,7 @@ def client():
             node = str(ip), int(port)
             if node not in nodes:
                 node != main_addr
-                bc_client.add_clients(node)
+                clients.add_clients(node)
                 nodes.append(node)
                 print(f"NODE:{node}")
         except ValueError:
@@ -208,7 +208,22 @@ def broadcast_to_clients(msg):
 def rdv_msg(args):
     csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     csock.connect(("localhost", 7000))
+    csock.sendall(f"{mip} {mport}".encode("utf-8"))
+    time.sleep(1)
     csock.sendall(f"{args}".encode("utf-8"))
+    connected = True
+    while connected:
+        data = csock.recv(HEADER).decode()
+        try:
+            ip, port = data.split(" ")
+            node = str(ip), int(port)
+            if node not in nodes:
+                node != main_addr
+                clients.add_clients(node)
+                nodes.append(node)
+                print(f"NODE:{node}")
+        except ValueError:
+            connected = False
     csock.close()
 
 
@@ -218,7 +233,7 @@ def bc_sync():
             bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             bcsock.bind(("localhost", 0))
             bcsock.connect(node)
-            bcsock.send(f"NEWNODE:{ip}:{port}".encode("utf-8"))
+            bcsock.send(f"NEWNODE:{mip}:{mport}".encode("utf-8"))
 
             # await bc migration size
             response = bcsock.recv(HEADER).decode()
@@ -232,6 +247,7 @@ def bc_sync():
 
             except:
                 bcsock.close()
+                break
 
 
 def mine_main():
@@ -241,11 +257,11 @@ def mine_main():
 
 
 sthread = threading.Thread(target=server)
-cthread = threading.Thread(target=client)
+cthread = threading.Thread(target=client, daemon=True)
 bcthread = threading.Thread(target=mine_main)
 
 
-def server_main():
+"""def server_main():
     while True:
         msg = input(">")
         if msg == "show_bc":
@@ -270,7 +286,7 @@ def server_main():
             tx = str(first_account) + ":" + str(amount) + ":" + str(second_account)
             msg_tx = msg + tx
             print(f"New transaction:{msg_tx, type(tx)}\n")
-            broadcast_to_clients(msg_tx)
+            broadcast_to_clients(msg_tx)"""
 
 
 if __name__ == "__main__":

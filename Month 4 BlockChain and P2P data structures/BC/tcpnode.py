@@ -5,7 +5,6 @@ from blockchain import (
     Block,
     block,
     Wallet,
-    wallet,
     blockchain,
     clients as clients,
     blockpool as blockpool,

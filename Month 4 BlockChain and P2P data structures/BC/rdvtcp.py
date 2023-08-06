@@ -59,11 +59,6 @@ def new_message(args):
         bcsock.close()
 
 
-def generate_wallet():
-    wallet = Wallet.generate_keys(self=True)
-    return wallet
-
-
 # create rendevous server for nodes
 def rendevous():
     rsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

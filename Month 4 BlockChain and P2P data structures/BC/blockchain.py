@@ -45,27 +45,24 @@ class Block:
 
     def __init__(self, number=0, previous=None, data=[], nonce=0, timestamp=None):
         self.number = number
-        self.data = self.build_data()
+        self.data = data or self.build_data()
         self.previous = previous
         self.nonce = nonce
         self.timestamp = timestamp or self.get_timestamp()
 
     def build_data(self):
         data = []
-        try:
-            for tx in tx_pool:
-                for i in range(10):
-                    if tx not in data:
-                        data.append(tx)
-                        tx_pool.remove(tx)
-                    else:
-                        None
-            return data
+        tx_bin = []
 
-        except:
-            if tx_pool is None:
-                data = "NO TRANSACTIONS"
-            return data
+        for tx in tx_pool:
+            print(f"tx:{tx}")
+            data.append(tx)
+            tx_bin.append(tx)
+
+        for tx in tx_bin:
+            tx_pool.remove(tx)
+
+        return data
 
     def get_previous_hash(self):
         if self.previous is None or IndexError:
@@ -177,9 +174,6 @@ class BlockPool:
     def add(self, block):
         self.block_pool.append(block)
         print(f"blockpool updated:\n")
-        print("Block Pool size:", len(self.block_pool), self.block_pool)
-        print("Client list size:", (len(clients.clients) + 1), "\n")
-
         if len(self.block_pool) == (len(clients.clients) + 1):
             self.validation()
             return
@@ -211,9 +205,12 @@ class Clients:
 
 
 class Wallet:
+    balance: int
+    balance = 0
+
     def __init__(self, public_key=None, balance=0):
         self.public_key = public_key or self.generate_keys()
-        self.balance = balance or self.get_balance(self.public_key)
+        self.balance = balance, self.get_balance(self.public_key)
 
     def generate_keys(self) -> str:
         while True:
@@ -229,19 +226,20 @@ class Wallet:
         return str(public_key_hash)
 
     def get_balance(self, public_key):
+        calc = 0
         for block in blockchain.chain:
-            for data in block:
-                for tx in data:
-                    if len(tx) == 2:
-                        if tx[0] == public_key:
-                            self.balance += tx[1]
-                        if tx[2] == public_key:
-                            self.balance -= tx[1]
-            return self.balance
+            for tx in block.data:
+                if len(tx) == 3:
+                    if tx[0] == public_key:
+                        calc += tx[1]
+                    if tx[2] == public_key:
+                        calc -= tx[1]
+                    self.balance = calc
+        return self.balance
 
-    def add_wallet(public_key):
-        walletaddr.append(public_key)
-        return public_key
+    def add_wallet(arg):
+        walletaddr.append(arg)
+        return arg
 
 
 class Transaction:
@@ -251,21 +249,18 @@ class Transaction:
         self.amount = amount
 
     def valid_address(self, arg):
-        if arg in walletaddr:
-            return True
+        for wallet in walletaddr:
+            if arg in wallet.public_key:
+                return True
         else:
             return False
 
-    def valid_amount(self, arg, amount):
-        amount = 0
-        for block in blockchain.chain:
-            for block.data in block:
-                for tx in block.data:
-                    if len(tx) == 2:
-                        if tx[0] == arg:
-                            amount += tx[1]
-                        if tx[2] == arg:
-                            amount -= tx[1]
+    def valid_amount(self, sender, amount):
+        true_amt = Wallet.get_balance(sender)
+        if amount - true_amt > 0:
+            return True
+        else:
+            return False
 
     def __repr__(self) -> str:
         f"{self.sender}:{self.amount}:{self.recipient}"
@@ -275,14 +270,8 @@ blockchain = Blockchain()
 block = Block()
 blockpool = BlockPool()
 clients = Clients()
-wallet = Wallet()
 
 
 def main():
-    global blockchain
-    while True:
+    for i in range(2):
         blockchain.mine()
-
-
-if __name__ == "__main__":
-    main()

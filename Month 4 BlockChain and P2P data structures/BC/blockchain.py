@@ -37,13 +37,17 @@ def wallet_addrs(arg):
 class Block:
     # actual block structure
 
+    address: ["Wallet"]
     number: Optional[int]
     previous: Optional["Block"]
     data: Optional[dict]
     nonce: Optional[int]
     timestamp: float
 
-    def __init__(self, number=0, previous=None, data=[], nonce=0, timestamp=None):
+    def __init__(
+        self, address, number=0, previous=None, data=[], nonce=0, timestamp=None
+    ):
+        self.address = address
         self.number = number
         self.data = data or self.build_data()
         self.previous = previous
@@ -55,7 +59,6 @@ class Block:
         tx_bin = []
 
         for tx in tx_pool:
-            print(f"tx:{tx}")
             data.append(tx)
             tx_bin.append(tx)
 
@@ -72,7 +75,12 @@ class Block:
 
     def get_hash(self):
         return update_hash(
-            self.number, self.data, self.previous, self.nonce, self.timestamp
+            self.address.public_key,
+            self.number,
+            self.data,
+            self.previous,
+            self.nonce,
+            self.timestamp,
         )
 
     def get_timestamp(self):
@@ -82,8 +90,9 @@ class Block:
 
     def __str__(self):
         return str(
-            "Block#: %s\nHash: %s\nPrevious: %s\nData: %s\nNonce: %s\nTimestamp: %s\n"
+            "\nMiner: %s\nBlock#: %s\nHash: %s\nPrevious: %s\nData: %s\nNonce: %s\nTimestamp: %s\n"
             % (
+                self.address.public_key,
                 self.number,
                 self.get_hash(),
                 self.previous,
@@ -100,8 +109,8 @@ class Blockchain:
     def __init__(self, chain=[]):
         self.chain = chain
 
-    def mine(self):
-        block = Block(number=(len(self.chain)))
+    def mine(self, arg):
+        block = Block(number=(len(self.chain)), address=arg)
         struct_time = time.localtime()
         minestamp = time.mktime(struct_time)
         print(f"Mining start time: {minestamp}\n")
@@ -187,6 +196,7 @@ class BlockPool:
 
         max_timestamp = max(self.block_pool, key=lambda b: float(b.timestamp))
         blockchain.add(max_timestamp)
+        coinbase.reward_miner(max_timestamp)
         self.block_pool.clear()
         print("Block minted:", max_timestamp)
         return
@@ -206,11 +216,10 @@ class Clients:
 
 class Wallet:
     balance: int
-    balance = 0
 
     def __init__(self, public_key=None, balance=0):
         self.public_key = public_key or self.generate_keys()
-        self.balance = balance, self.get_balance(self.public_key)
+        self.balance = balance or self.get_balance(self.public_key)
 
     def generate_keys(self) -> str:
         while True:
@@ -229,12 +238,14 @@ class Wallet:
         calc = 0
         for block in blockchain.chain:
             for tx in block.data:
-                if len(tx) == 3:
-                    if tx[0] == public_key:
-                        calc += tx[1]
-                    if tx[2] == public_key:
-                        calc -= tx[1]
-                    self.balance = calc
+                if tx.sender == public_key:
+                    calc += tx.amount
+                if tx.recipient == public_key:
+                    calc -= tx.amount
+                self.balance = calc
+        if AttributeError:
+            return calc
+
         return self.balance
 
     def add_wallet(arg):
@@ -245,33 +256,63 @@ class Wallet:
 class Transaction:
     def __init__(self, sender, amount, recipient):
         self.sender = sender
-        self.recipient = recipient
         self.amount = amount
+        self.recipient = recipient
+        self.valid_address(sender)
+        self.valid_address(recipient)
+        self.valid_amount(sender)
 
     def valid_address(self, arg):
         for wallet in walletaddr:
-            if arg in wallet.public_key:
+            if arg == wallet.public_key:
+                print(f"addr verified: {arg, wallet}")
                 return True
         else:
             return False
 
-    def valid_amount(self, sender, amount):
-        true_amt = Wallet.get_balance(sender)
-        if amount - true_amt > 0:
-            return True
+    def valid_amount(self, sender):
+        true_amt = Wallet.get_balance(self, public_key=sender)
+        check = true_amt - self.amount
+        if check > 0:
+            print(true_amt, check)
+            return check
         else:
-            return False
+            return False, print(f"{sender} does not have enough funds to transact")
+
+    def __str__(self) -> str:
+        return f"{self.sender}:{self.amount}:{self.recipient}"
 
     def __repr__(self) -> str:
-        f"{self.sender}:{self.amount}:{self.recipient}"
+        return f"{self.sender}:{self.amount}:{self.recipient}"
+
+
+class Coinbase:
+    reward = 50
+    address: ["Wallet"]
+
+    def __init__(self, supply):
+        self.supply = supply
+
+    def reward_miner(self, block):
+        print(type(block.address.balance))
+        block.address.balance += self.reward
+        self.supply = self.supply - self.reward
+        return self.supply
 
 
 blockchain = Blockchain()
-block = Block()
 blockpool = BlockPool()
 clients = Clients()
+coinbase = Coinbase(200)
 
 
-def main():
+def create_tx(sender, amount, recipient):
+    tx = Transaction(sender, amount, recipient)
+    if tx.valid_address(sender) and tx.valid_address(sender):
+        if tx.valid_amount(sender):
+            return tx
+
+
+def main(arg):
     for i in range(2):
-        blockchain.mine()
+        blockchain.mine(arg=arg)

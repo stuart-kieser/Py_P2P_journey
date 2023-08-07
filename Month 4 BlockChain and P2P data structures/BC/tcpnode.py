@@ -3,7 +3,6 @@ import threading
 import time
 from blockchain import (
     Block,
-    block,
     Wallet,
     blockchain,
     clients as clients,
@@ -11,6 +10,7 @@ from blockchain import (
     add_tx_to_pool,
     wallet_addrs,
     tx_pool,
+    main,
 )
 
 
@@ -134,7 +134,7 @@ def handle_client(clientsocket, addr):
             prop_bc(clientsocket=clientsocket, addr=addr, data=data)
 
         elif data == "bc":
-            bcthread.start()
+            main()
 
         else:
             None
@@ -249,15 +249,8 @@ def bc_sync():
                 break
 
 
-def mine_main():
-    while True:
-        blockchain.mine()
-        broadcast_to_clients(block)
-
-
 sthread = threading.Thread(target=server)
 cthread = threading.Thread(target=client, daemon=True)
-bcthread = threading.Thread(target=mine_main)
 
 
 """def server_main():

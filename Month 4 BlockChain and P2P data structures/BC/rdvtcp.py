@@ -1,7 +1,6 @@
 import socket
 import threading
 from multiprocessing import freeze_support
-from blockchain import Wallet
 
 
 HEADER = 128

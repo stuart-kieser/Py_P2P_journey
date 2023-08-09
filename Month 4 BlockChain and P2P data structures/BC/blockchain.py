@@ -3,13 +3,10 @@ import hashlib
 from typing import Optional, Tuple
 import time
 import random
+from tcpnode import *
 
 
 gENESIS_HASH = "0" * 64
-
-walletaddr = []
-nodes = []
-tx_pool = []
 
 
 def update_hash(*args):
@@ -21,17 +18,6 @@ def update_hash(*args):
     h.update(hashing_text.encode("utf-8"))
 
     return h.hexdigest()
-
-
-def add_tx_to_pool(args):
-    tx_pool.append(args)
-
-
-def wallet_addrs(arg):
-    if arg in walletaddr:
-        return True
-    else:
-        return False
 
 
 class Block:
@@ -58,12 +44,12 @@ class Block:
         data = []
         tx_bin = []
 
-        for tx in tx_pool:
+        for tx in txpool.tx_pool:
             data.append(tx)
             tx_bin.append(tx)
 
         for tx in tx_bin:
-            tx_pool.remove(tx)
+            txpool.tx_pool.remove(tx)
 
         return data
 
@@ -109,8 +95,7 @@ class Blockchain:
     def __init__(self, chain=[]):
         self.chain = chain
 
-    def mine(self, arg):
-        block = Block(number=(len(self.chain)), address=arg)
+    def mine(self, block, arg):
         struct_time = time.localtime()
         minestamp = time.mktime(struct_time)
         print(f"Mining start time: {minestamp}\n")
@@ -131,6 +116,7 @@ class Blockchain:
                     self.difficulty += 0  # change to 1
                     print(block.nonce)
                     print(f"increase diff: {self.difficulty}")
+                    blockpool.ownblock.append(block)
                     blockpool.add(block)
                     break
                     # block.nonce = 0
@@ -177,27 +163,23 @@ class Blockchain:
 
 
 class BlockPool:
-    def __init__(self, block_pool=[]):
+    def __init__(self, block_pool=[], ownblock=[]):
         self.block_pool = block_pool
+        self.ownblock = ownblock
 
     def add(self, block):
         self.block_pool.append(block)
         print(f"blockpool updated:\n")
-        if len(self.block_pool) == (len(clients.clients) + 1):
+        if len(self.block_pool) == (len(nodepool.nodes) + 1):
             self.validation()
             return
 
     def validation(self):
-        for block in self.block_pool:
-            for other_block in self.block_pool:
-                block != other_block
-                if block.data != other_block.data:
-                    self.block_pool.pop(other_block)
-
         max_timestamp = max(self.block_pool, key=lambda b: float(b.timestamp))
         blockchain.add(max_timestamp)
         coinbase.reward_miner(max_timestamp)
         self.block_pool.clear()
+        self.ownblock.clear()
         print("Block minted:", max_timestamp)
         return
 
@@ -237,11 +219,13 @@ class Wallet:
     def get_balance(self, public_key):
         calc = 0
         for block in blockchain.chain:
+            if block.address.public_key == public_key:
+                calc += 50
             for tx in block.data:
                 if tx.sender == public_key:
-                    calc += tx.amount
-                if tx.recipient == public_key:
                     calc -= tx.amount
+                if tx.recipient == public_key:
+                    calc += tx.amount
                 self.balance = calc
         if AttributeError:
             return calc
@@ -249,21 +233,27 @@ class Wallet:
         return self.balance
 
     def add_wallet(arg):
-        walletaddr.append(arg)
+        walletpool.walletpool.append(arg)
         return arg
 
 
 class Transaction:
-    def __init__(self, sender, amount, recipient):
+    def __init__(self, sender, amount, recipient, timestamp):
         self.sender = sender
         self.amount = amount
         self.recipient = recipient
+        self.timestamp = self.get_timestamp()
         self.valid_address(sender)
         self.valid_address(recipient)
         self.valid_amount(sender)
 
+    def get_timestamp(self):
+        struct_time = time.localtime()
+        timestamp = time.mktime(struct_time)
+        return timestamp
+
     def valid_address(self, arg):
-        for wallet in walletaddr:
+        for wallet in walletpool.walletpool:
             if arg == wallet.public_key:
                 print(f"addr verified: {arg, wallet}")
                 return True
@@ -279,6 +269,11 @@ class Transaction:
         else:
             return False, print(f"{sender} does not have enough funds to transact")
 
+    def execute(
+        self,
+    ):
+        pass
+
     def __str__(self) -> str:
         return f"{self.sender}:{self.amount}:{self.recipient}"
 
@@ -286,33 +281,46 @@ class Transaction:
         return f"{self.sender}:{self.amount}:{self.recipient}"
 
 
+class TransactionPool:
+    def __init__(self, tx_pool=[]):
+        self.tx_pool = tx_pool
+
+    def checkpool(self):
+        for tx in self.tx_pool:
+            pass
+
+
+class WalletPool:
+    def __init__(self, walletpool=[]):
+        self.walletpool = walletpool
+
+
 class Coinbase:
     reward = 50
+    supply = 200
     address: ["Wallet"]
 
-    def __init__(self, supply):
-        self.supply = supply
-
     def reward_miner(self, block):
-        print(type(block.address.balance))
         block.address.balance += self.reward
         self.supply = self.supply - self.reward
         return self.supply
 
 
-blockchain = Blockchain()
-blockpool = BlockPool()
-clients = Clients()
-coinbase = Coinbase(200)
-
-
-def create_tx(sender, amount, recipient):
-    tx = Transaction(sender, amount, recipient)
-    if tx.valid_address(sender) and tx.valid_address(sender):
-        if tx.valid_amount(sender):
-            return tx
+class Nodepool:
+    def __init__(self, nodes=[]):
+        self.nodes = nodes
 
 
 def main(arg):
     for i in range(2):
-        blockchain.mine(arg=arg)
+        block = Block(number=(len(blockchain.chain)), address=arg)
+        blockchain.mine(block=block, arg=arg)
+
+
+blockchain = Blockchain()
+blockpool = BlockPool()
+clients = Clients()
+coinbase = Coinbase()
+txpool = TransactionPool()
+nodepool = Nodepool()
+walletpool = WalletPool()

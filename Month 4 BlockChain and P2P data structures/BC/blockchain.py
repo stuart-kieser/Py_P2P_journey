@@ -1,12 +1,22 @@
 from hashlib import sha256
 import hashlib
-from typing import Optional, Tuple
+from typing import Optional
 import time
 import random
-from tcpnode import *
+import socket
+import threading
+import time
+import pickle
+import random
 
 
 gENESIS_HASH = "0" * 64
+
+HEADER = 1024
+
+
+def show_nodes():
+    return clients.clients
 
 
 def update_hash(*args):
@@ -114,9 +124,8 @@ class Blockchain:
                 print(time_difference_minutes)
                 if time_difference_minutes < float(3):
                     self.difficulty += 0  # change to 1
-                    print(block.nonce)
                     print(f"increase diff: {self.difficulty}")
-                    blockpool.ownblock.append(block)
+                    messagefunctions.broadcast_to_clients("bcu", block)
                     blockpool.add(block)
                     break
                     # block.nonce = 0
@@ -159,28 +168,28 @@ class Blockchain:
         return
 
 
-# block pool collects each block to be mined and i used in verification of blocks
-
-
 class BlockPool:
-    def __init__(self, block_pool=[], ownblock=[]):
-        self.block_pool = block_pool
+    def __init__(self, blockpool=[], ownblock=[]):
+        self.blockpool = blockpool
         self.ownblock = ownblock
 
     def add(self, block):
-        self.block_pool.append(block)
-        print(f"blockpool updated:\n")
-        if len(self.block_pool) == (len(nodepool.nodes) + 1):
-            self.validation()
-            return
+        self.blockpool.append(block)
+        print(f"blockpool size:{len(self.blockpool)}\n")
+        print(f"clients list size:{len(clients.clients)}:\n")
+
+        while True:
+            if len(self.blockpool) == (len(clients.clients)):
+                self.validation()
+                return
 
     def validation(self):
-        max_timestamp = max(self.block_pool, key=lambda b: float(b.timestamp))
+        max_timestamp = min(self.blockpool, key=lambda b: float(b.timestamp))
         blockchain.add(max_timestamp)
         coinbase.reward_miner(max_timestamp)
-        self.block_pool.clear()
+        self.blockpool.clear()
         self.ownblock.clear()
-        print("Block minted:", max_timestamp)
+        print(f"Block minted: {max_timestamp}\n")
         return
 
 
@@ -193,7 +202,7 @@ class Clients:
 
     def add_clients(self, client):
         self.clients.append(client)
-        print("client added on blockchain side")
+        print("client added on blockchain side\n")
 
 
 class Wallet:
@@ -238,14 +247,16 @@ class Wallet:
 
 
 class Transaction:
-    def __init__(self, sender, amount, recipient, timestamp):
+    def __init__(self, sender, amount, recipient):
         self.sender = sender
         self.amount = amount
         self.recipient = recipient
         self.timestamp = self.get_timestamp()
-        self.valid_address(sender)
-        self.valid_address(recipient)
-        self.valid_amount(sender)
+        check1 = self.valid_address(sender)
+        check2 = self.valid_address(recipient)
+        check3 = self.valid_amount(sender)
+        if check1 and check2 and check3:
+            self.execute(sender, amount, recipient)
 
     def get_timestamp(self):
         struct_time = time.localtime()
@@ -254,8 +265,8 @@ class Transaction:
 
     def valid_address(self, arg):
         for wallet in walletpool.walletpool:
-            if arg == wallet.public_key:
-                print(f"addr verified: {arg, wallet}")
+            if arg.public_key == wallet.public_key:
+                print(f"addr verified: {arg, wallet.public_key}\n")
                 return True
         else:
             return False
@@ -267,12 +278,11 @@ class Transaction:
             print(true_amt, check)
             return check
         else:
-            return False, print(f"{sender} does not have enough funds to transact")
+            return False, print(f"{sender} does not have enough funds to transact\n")
 
-    def execute(
-        self,
-    ):
-        pass
+    def execute(self, sender, amount, recpient):
+        sender.balance -= amount
+        recpient.balance += amount
 
     def __str__(self) -> str:
         return f"{self.sender}:{self.amount}:{self.recipient}"
@@ -306,13 +316,238 @@ class Coinbase:
         return self.supply
 
 
-class Nodepool:
-    def __init__(self, nodes=[]):
-        self.nodes = nodes
+class Server:
+    def __init__(self, ip, port):
+        self.mip = ip
+        self.mport = port
+        self.main_addr = self.mip, self.mport
+
+    def server(self):
+        print(f"Starting server: {self.main_addr}\n")
+        # create the server socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # bind the socket and listen for incoming requests
+        sock.bind(self.main_addr)
+        sock.listen()
+        # accept incoming connections
+        while True:
+            clientsock, addr = sock.accept()
+            thread_hc = threading.Thread(
+                target=self.handle_client, args=(clientsock, addr), daemon=True
+            )
+            thread_hc.start()
+
+    def handle_client(self, clientsocket, addr):
+        while True:
+            data = clientsocket.recv(HEADER)
+            try:
+                info, data_depickled, addr = pickle.loads(data)
+                if info == "tx":
+                    transaction = data_depickled
+                    if isinstance(transaction, Transaction):
+                        print(f"New transaction:{transaction, type(transaction)}\n")
+                        if transaction not in txpool.tx_pool:
+                            txpool.tx_pool.append(transaction)
+
+                # new public key registration
+                elif info == "pkr":
+                    wallet = data_depickled
+                    if isinstance(wallet, Wallet):
+                        print(f"New wallet:{wallet, type(wallet)}\n")
+                        if wallet not in walletpool.walletpool:
+                            walletpool.walletpool.append(wallet)
+
+                # signifies block chain update
+                elif info == "bcu":
+                    block = data_depickled
+                    if isinstance(block, Block):
+                        print(f"New block:{block, type(block)}\n")
+                        if block not in blockpool.blockpool:
+                            blockpool.blockpool.append(block)
+
+                            # add arg to bc mine function
+
+                elif info == "NEWNODE":
+                    blockchain = data_depickled
+                    if isinstance(blockchain, Blockchain):
+                        PropgateFunctions.prop_blockchain(clientsocket, addr)
+
+                elif data_depickled == "bc":
+                    main()
+
+                else:
+                    None
+
+            except EOFError:
+                None
+
+            # old architecture, execute data from pickle loads
+            # signifies new tx update
+
+    def prop_bc(self, clientsocket, addr):
+        try:
+            info, ip, port = data.split(" ")
+            node = str(ip), int(port)
+            if node not in clients.clients:
+                node != server.main_addr
+                clients.add_clients(node)
+                print(f"DATA:{node}")
+
+            # intitiate bc migration to new node
+
+            clientsocket.sendall(f"{str(blockchain.chain.__sizeof__())}")
+            data = clientsocket.recv(1024).decode("ascii")
+            if data == "AKK":
+                clientsocket.sendall(f"{blockchain.chain}".encode("ascii"))
+                return
+        except ValueError:
+            connected = False
+
+
+class Client:
+    def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
+        self.client_addr = ip, port
+
+    def client(self):
+        # create client socket to communicate with server
+        csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(f"Starting client on:{self.client_addr}\n")
+
+        # bind socket to local addr
+        csock.bind(self.client_addr)
+
+        # connect to server
+        node_addr = ("localhost", 7000)
+        csock.connect(node_addr)
+        ip, port = server.main_addr
+        msg = f"{ip} {port}"
+        csock.sendall(f"{msg}".encode("ascii"))
+        # main loop to accept in propagated clients
+        input("Press enter to start propagation.\n")
+        csock.sendall(f"Prop".encode("ascii"))
+        connected = True
+        while connected:
+            data = csock.recv(HEADER).decode()
+            try:
+                ip, port = data.split(" ")
+                node = str(ip), int(port)
+                if node not in clients.clients:
+                    node != server.main_addr
+                    clients.add_clients(node)
+                    print(f"NODE:{node}\n")
+            except ValueError:
+                connected = False
+                csock.close()
+                break
+
+
+class MessageFunctions:
+    def bc_interact(self, info, msg):
+        pickled_msg = pickle.dumps((info, msg, server.main_addr))
+        for client in clients.clients:
+            bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            bcsock.bind(("localhost", 0))
+            bcsock.connect(client)
+            bcsock.send(pickled_msg)
+            bcsock.close()
+
+    def broadcast_to_clients(self, info, msg):
+        pickled_msg = pickle.dumps((info, msg, server.main_addr))
+        for client in clients.clients:
+            if client != server.main_addr:
+                bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                bcsock.bind(("localhost", 0))
+                bcsock.connect(client)
+                bcsock.sendall(pickled_msg)
+                bcsock.close()
+
+    def rdv_msg(self, args):
+        csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        csock.connect(("localhost", 7000))
+        csock.sendall(f"{server.mip} {server.mport}".encode("ascii"))
+        time.sleep(1)
+        csock.sendall(f"{args}".encode("ascii"))
+        connected = True
+        while connected:
+            data = csock.recv(HEADER).decode()
+            try:
+                ip, port = data.split(" ")
+                node = str(ip), int(port)
+                if node not in clients.clients:
+                    node != server.main_addr
+                    clients.add_clients(node)
+                    print(f"NODE:{node}")
+            except ValueError:
+                connected = False
+        csock.close()
+
+    def bc_sync():
+        for node in clients.clients:
+            if node != server.main_addr:
+                bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                bcsock.bind(("localhost", 0))
+                bcsock.connect(node)
+                bcsock.send(f"NEWNODE:{server.mip}:{server.mport}".encode("ascii"))
+
+                # await bc migration size
+                response = bcsock.recv(HEADER).decode()
+                response = int(response)
+                bcsock.send(f"AKK:{server.main_addr}".encode("ascii"))
+
+                # true migration
+                try:
+                    response = bcsock.recv(HEADER).decode()
+                    print(f"bc_sync rep:", response)
+
+                except:
+                    bcsock.close()
+                    break
+
+
+class PropgateFunctions:
+    def request_prop(self, info, msg):
+        pickled_msg = pickle.dumps((info, msg))
+        client = random.choice(clients.clients)
+        bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        bcsock.bind(("localhost", 0))
+        bcsock.connect(client)
+        bcsock.send(pickled_msg)
+        while True:
+            data = bcsock.recv(HEADER)
+            try:
+                depickled = pickle.loads(data)
+                if isinstance(depickled, Blockchain):
+                    for block in depickled:
+                        blockchain.add(block)
+                if depickled == "DONE":
+                    break
+
+            except:
+                None
+
+    def prop_blockchain(self, clientsocket, addr):
+        bcpickled = pickle.dumps(blockchain)
+        clientsocket.sendall(bcpickled)
+        donepickled = "DONE"
+        clientsocket.sendall(donepickled)
+
+    def prop_blockpool():
+        pass
+
+    def prop_walletpool():
+        pass
+
+    def prop_txpool():
+        pass
+
+    def prop_coinbase():
+        pass
 
 
 def main(arg):
-    for i in range(2):
+    for i in range(1):
         block = Block(number=(len(blockchain.chain)), address=arg)
         blockchain.mine(block=block, arg=arg)
 
@@ -322,5 +557,12 @@ blockpool = BlockPool()
 clients = Clients()
 coinbase = Coinbase()
 txpool = TransactionPool()
-nodepool = Nodepool()
 walletpool = WalletPool()
+messagefunctions = MessageFunctions()
+
+server = Server("localhost", int(input("Select a server port: ")))
+client = Client("localhost", int(input("Select a client port: ")))
+
+
+sthread = threading.Thread(target=server.server)
+cthread = threading.Thread(target=client.client, daemon=True)

@@ -1,6 +1,7 @@
 import socket
 import threading
 from multiprocessing import freeze_support
+import pickle
 
 
 HEADER = 128
@@ -42,6 +43,7 @@ def propagate_nodes(clientsock, caddr):
             clientsock.send(nmsg)
         except ConnectionResetError or ConnectionAbortedError:
             pass
+
     print("Propagation done")
 
 
@@ -50,11 +52,13 @@ def add_node(args):
         nodes.append(args)
 
 
-def new_message(args):
+def new_message(tag, args):
     for client in nodes:
         bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         bcsock.connect(client)
-        bcsock.sendall(f"{args}:{bcsock.getsockname()}".encode("utf-8"))
+        pickled_msg = pickle.dumps((tag, args, bcsock.getsockname()))
+
+        bcsock.sendall(pickled_msg)
         bcsock.close()
 
 

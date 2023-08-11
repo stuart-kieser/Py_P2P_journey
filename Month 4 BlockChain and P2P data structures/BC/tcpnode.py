@@ -5,11 +5,11 @@ import pickle
 from blockchain import (
     Block,
     Wallet,
+    Transaction,
     blockchain,
     blockpool,
     clients,
     txpool,
-    nodepool,
     walletpool,
     main,
 )
@@ -19,7 +19,7 @@ HEADER = 128
 
 
 def show_nodes():
-    return nodepool.nodes
+    return clients.clients
 
 
 class Server:
@@ -48,66 +48,33 @@ class Server:
             data = clientsocket.recv(1024)
             try:
                 info, data_depickled, addr = pickle.loads(data)
-                if info == "tx:":
+                if info == "tx":
                     transaction = data_depickled
-                    print(f"DATA:{transaction}\n")
-                    print(
-                        f"New transaction:{transaction.public_key, type(transaction)}\n"
-                    )
-                    txpool.tx_pool.append(transaction)
-                    if data_depickled not in txpool.tx_pool:
-                        txpool.tx_pool.append(transaction)
+                    if isinstance(transaction, Transaction):
+                        print(f"DATA:{transaction}\n")
+                        print(f"New transaction:{transaction, type(transaction)}\n")
+                        if transaction not in txpool.tx_pool:
+                            txpool.tx_pool.append(transaction)
 
                 # new public key registration
-                elif data_depickled.startswith("public_keyr:"):
-                    print(f"DATA:{data}\n")
-                    info, public_key, node = data_depickled.split(":")
-                    info = str(info)
-                    public_key = str(public_key)
-                    node = str(node)
-                    tx = info, public_key
-
-                    # check if key exists in bc history
-                    walletpool.walletpool(public_key)
-                    print(f"public key registration:{tx, type(tx)}\n")
-
-                elif data_depickled.startswith("public_keyn:"):
-                    print(f"DATA:{data}\n")
-                    info, public_key, node = data_depickled.split(":")
-                    info = str(info)
-                    public_key = str(public_key)
-                    node = str(node)
-                    tx = info, public_key
-
-                    # add wallet to tx
-                    walletpool.walletpool.appent(tx)
-                    Wallet.add_wallet(public_key)
+                elif info == "pkr":
+                    wallet = data_depickled
+                    if isinstance(wallet, Wallet):
+                        print(f"DATA:{wallet}\n")
+                        print(f"New wallet:{wallet, type(wallet)}\n")
+                        if wallet not in walletpool.walletpool:
+                            walletpool.walletpool.append(wallet)
 
                 # signifies block chain update
-                elif data_depickled.startswith("bcu:"):
-                    print(f"DATA:{data}\n")
-                    (
-                        info,
-                        number,
-                        received_data,
-                        previous_hash,
-                        nonce,
-                        timestamp,
-                        node,
-                    ) = data.split(":")
-                    info = str(info)
-                    number = int(number)
-                    received_data = str(received_data)
-                    previous_hash = str(previous_hash)
-                    nonce = int(nonce)
-                    timestamp = str(timestamp)
-                    node = str(node)
-                    bcu_block = Block(
-                        number, previous_hash, received_data, 0, timestamp
-                    )
-                    blockchain.mine(bcu_block)
+                elif info == "bcu":
+                    block = data_depickled
+                    if isinstance(block, Block):
+                        print(f"DATA:{data}\n")
+                        print(f"New block:{block, type(block)}\n")
+                        if block not in blockpool.block_pool:
+                            blockchain.mine(block)
 
-                elif data_depickled.startswith("NEWNODE:"):
+                elif info == "NEWNODE":
                     prop_bc(clientsocket=clientsocket, addr=addr, data=data)
 
                 elif data_depickled == "bc":
@@ -126,10 +93,9 @@ def prop_bc(clientsocket, addr, data):
     try:
         info, ip, port = data.split(" ")
         node = str(ip), int(port)
-        if node not in nodepool.nodepool:
+        if node not in clients.clients:
             node != server.main_addr
             clients.add_clients(node)
-            nodepool.nodes.append(node)
             print(f"DATA:{node}")
 
         # intitiate bc migration to new node
@@ -172,94 +138,67 @@ class Client:
             try:
                 ip, port = data.split(" ")
                 node = str(ip), int(port)
-                if node not in nodepool.nodes:
+                if node not in clients.clients:
                     node != server.main_addr
                     clients.add_clients(node)
-                    nodepool.nodes.append(node)
                     print(f"NODE:{node}")
             except ValueError:
                 connected = False
 
 
-def broadcast_to_clients(info, msg):
-    pickled_msg = pickle.dumps((info, msg, server.main_addr))
-    print(f"pickle: {pickled_msg}")
-    for client in nodepool.nodes:
-        if client != server.main_addr:
-            bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            bcsock.bind(("localhost", 0))
-            bcsock.connect(client)
-            bcsock.send(pickled_msg)
-            bcsock.close()
-
-
-def rdv_msg(args):
-    csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    csock.connect(("localhost", 7000))
-    csock.sendall(f"{server.mip} {server.mport}".encode("ascii"))
-    time.sleep(1)
-    csock.sendall(f"{args}".encode("ascii"))
-    connected = True
-    while connected:
-        data = csock.recv(HEADER).decode()
-        try:
-            ip, port = data.split(" ")
-            node = str(ip), int(port)
-            if node not in nodepool.nodes:
-                node != server.main_addr
-                clients.add_clients(node)
-                nodepool.nodes.append(node)
-                print(f"NODE:{node}")
-        except ValueError:
-            connected = False
-    csock.close()
-
-
-def bc_sync():
-    for node in nodepool.nodes:
-        if node != server.main_addr:
-            bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            bcsock.bind(("localhost", 0))
-            bcsock.connect(node)
-            bcsock.send(f"NEWNODE:{server.mip}:{server.mport}".encode("ascii"))
-
-            # await bc migration size
-            response = bcsock.recv(HEADER).decode()
-            response = int(response)
-            bcsock.send(f"AKK:{server.main_addr}".encode("ascii"))
-
-            # true migration
-            try:
-                response = bcsock.recv(HEADER).decode()
-                print(f"bc_sync rep:", response)
-
-            except:
+class MessageFunctions:
+    def broadcast_to_clients(info, msg):
+        pickled_msg = pickle.dumps((info, msg, server.main_addr))
+        print(f"pickle: {pickled_msg}")
+        for client in clients.clients:
+            if client != server.main_addr:
+                bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                bcsock.bind(("localhost", 0))
+                bcsock.connect(client)
+                bcsock.send(pickled_msg)
                 bcsock.close()
-                break
 
+    def rdv_msg(args):
+        csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        csock.connect(("localhost", 7000))
+        csock.sendall(f"{server.mip} {server.mport}".encode("ascii"))
+        time.sleep(1)
+        csock.sendall(f"{args}".encode("ascii"))
+        connected = True
+        while connected:
+            data = csock.recv(HEADER).decode()
+            try:
+                ip, port = data.split(" ")
+                node = str(ip), int(port)
+                if node not in clients.clients:
+                    node != server.main_addr
+                    clients.add_clients(node)
+                    print(f"NODE:{node}")
+            except ValueError:
+                connected = False
+        csock.close()
 
-# creates block to send to clients
-def own_block(block):
-    number = block.number
-    data = block.data
-    previous = block.previous
-    nonce = block.nonce
-    timestamp = block.timestamp
-    bcu = (
-        "bcu"
-        + ":"
-        + str(number)
-        + ":"
-        + str(data)
-        + ":"
-        + str(previous)
-        + ":"
-        + str(nonce)
-        + ":"
-        + str(timestamp)
-    )
-    msg = bcu
-    broadcast_to_clients(msg)
+    def bc_sync():
+        for node in clients.clients:
+            if node != server.main_addr:
+                bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                bcsock.bind(("localhost", 0))
+                bcsock.connect(node)
+                bcsock.send(f"NEWNODE:{server.mip}:{server.mport}".encode("ascii"))
+
+                # await bc migration size
+                response = bcsock.recv(HEADER).decode()
+                response = int(response)
+                bcsock.send(f"AKK:{server.main_addr}".encode("ascii"))
+
+                # true migration
+                try:
+                    response = bcsock.recv(HEADER).decode()
+                    print(f"bc_sync rep:", response)
+
+                except:
+                    bcsock.close()
+                    break
 
 
 server = Server("localhost", int(input("Select a server port: ")))

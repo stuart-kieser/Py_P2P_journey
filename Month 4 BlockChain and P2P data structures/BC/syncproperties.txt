@@ -1,0 +1,9 @@
+Guideline for what should be propagated:
+________________________________________
+
+Clients: clients.clients list holds all nodes, defos propagated
+Blockchain: blockchain.chain, difficulty
+BlockPool: Does not need to be propagated, BlockPool resets each block
+WalletPool: Holds all wallet addresses, should be propagated
+TransactionPool: defs propagate tx's
+Coinbase: Calc to find supply? or just propagate?

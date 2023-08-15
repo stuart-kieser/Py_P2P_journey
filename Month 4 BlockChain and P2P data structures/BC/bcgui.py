@@ -1,6 +1,4 @@
 import tkinter as tk
-from blockchain import wallet, blockchain
-import rdvtcp
 
 FONT = ("Arial", 18)
 

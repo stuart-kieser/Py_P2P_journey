@@ -10,7 +10,7 @@ import pickle
 import random
 import tkinter as tk
 from tkinter import messagebox
-from functools import partial
+import copy
 
 
 GENESIS_HASH = "0" * 64
@@ -105,6 +105,20 @@ class Block:
             ),
         )
 
+    def __repr__(self):
+        return str(
+            "\nMiner: %s\nBlock#: %s\nHash: %s\nPrevious: %s\nData: %s\nNonce: %s\nTimestamp: %s\n"
+            % (
+                self.address.public_key,
+                self.number,
+                self.get_hash(),
+                self.previous,
+                self.data,
+                self.nonce,
+                self.timestamp,
+            ),
+        )
+
 
 class Blockchain:
     difficulty = 6
@@ -127,53 +141,56 @@ class Blockchain:
                 # Get the current timestamp in seconds since the epoch
                 timestamp = time.time()
                 time_difference_minutes = (timestamp - minestamp) / 60
-                print(time_difference_minutes)
+                print(f"{time_difference_minutes}\n")
                 if time_difference_minutes < float(3):
                     self.difficulty += 0  # change to 1
-                    print(f"increase diff: {self.difficulty}")
-                    messagefunctions.broadcast_to_clients("bcu", block)
-                    blockpool.add(block)
-                    break
-                    # block.nonce = 0
+                    print(f"increase diff: {self.difficulty}\n")
+                    return block
 
                 elif time_difference_minutes > float(5):
-                    print(block.nonce)
                     self.difficulty -= 0
-                    print(f"decrease diff: {self.difficulty}")
-                    blockpool.add(block)
-                    break
+                    print(f"decrease diff: {self.difficulty}\n")
+                    return block
 
                 elif time_difference_minutes > float(7):
-                    print(block.nonce)
-                    self.difficulty -= 3
-                    print(f"decrease diff: {self.difficulty}")
-                    blockpool.add(block)
-                    break
+                    self.difficulty -= 0
+                    print(f"decrease diff: {self.difficulty}\n")
+                    return block
 
                 else:
-                    blockpool.add(block)
-                    self.difficulty -= 2
-                    break
+                    self.difficulty -= 0
+                    print(f"decrease diff: {self.difficulty}\n")
+                    return block
 
             else:
                 block.nonce += 1
 
-    def isValid(self, block):
-        try:
-            previousblock = self.chain[-1]
-        except IndexError:
+    def is_valid(self, block):
+        if IndexError:
             return True
-
-        if block.previous == previousblock.get_hash():
-            return previousblock.get_hash()
-
         else:
-            return False
+            previous_block = self.chain[-1]
+            # Check if the previous hash matches the hash of the previous block
+            if block.previous != previous_block.get_hash():
+                return False
+
+            # Check to see if block number matches
+            if block.number != blockchain.chain[-1].number + 1:
+                return False
+
+            # Check if the block's timestamp is reasonable (within a certain range of current time)
+            current_time = time.time()
+            time_difference = abs(current_time - block.timestamp)
+            max_time_difference = (
+                600  # Maximum allowed time difference in seconds (adjust as needed)
+            )
+            if time_difference > max_time_difference:
+                return False
 
     def add(self, block):
         with globallock:
             self.chain.append(block)
-        return
+            return
 
 
 class BlockPool:
@@ -184,26 +201,23 @@ class BlockPool:
     def add(self, block):
         with globallock:
             self.blockpool.append(block)
-        print(f"blockpool size:{len(self.blockpool)}\n")
-        print(f"clients list size:{len(clients.clients)}:\n")
-
         while True:
+            print(f"blockpool size:{len(self.blockpool)}\n")
+            print(f"clients list size:{len(clients.clients)}:\n")
             if len(self.blockpool) == (len(clients.clients)):
                 self.validation()
-                return
+                break
 
     def validation(self):
-        max_timestamp = min(self.blockpool, key=lambda b: float(b.timestamp))
-        if blockchain.isValid(block=max_timestamp):
+        max_timestamp = max(self.blockpool, key=lambda b: float(b.nonce))
+        if blockchain.is_valid(max_timestamp):
             blockchain.add(max_timestamp)
             coinbase.reward_miner(max_timestamp)
             self.blockpool.clear()
             self.ownblock.clear()
             print(f"Block minted: {max_timestamp}\n")
         else:
-            print(f"FLAGGED: \n{max_timestamp}")
-
-        return
+            print(f"Block has been flagged {max_timestamp}\n")
 
 
 class Clients:
@@ -247,11 +261,12 @@ class Wallet:
             if block.address.public_key == self.public_key:
                 calc += 50
             for tx in block.data:
-                if tx.sender == self.public_key:
-                    calc -= tx.amount
-                if tx.recipient == self.public_key:
-                    calc += tx.amount
-                self.balance = calc
+                if isinstance(tx, Transaction):
+                    if tx.sender == self.public_key:
+                        calc -= int(tx.amount)
+                    if tx.recipient == self.public_key:
+                        calc += int(tx.amount)
+                    self.balance = calc
         if AttributeError:
             return calc
 
@@ -267,6 +282,12 @@ class Wallet:
     def wallet_get_addr(self):
         return self.public_key
 
+    def __str__(self) -> str:
+        return f"pkr {self.public_key}"
+
+    def __repr__(self) -> str:
+        return f"pkr {self.public_key}"
+
 
 class Transaction:
     # Transaction can holder a container, container is meant to represent any smart contract or file
@@ -281,8 +302,11 @@ class Transaction:
         check1 = self.valid_address(sender)
         check2 = self.valid_recipient(recipient)
         check3 = self.valid_amount(sender)
-        if check1 and check2 and check3:
-            self.execute(sender, amount, recipient)
+        if check1 and check2:
+            if check3 > self.amount:
+                self.execute(sender, amount, recipient)
+        else:
+            print(f"CHECKS FAILED: CHECK3{check3} CHECK2 {check2}\n")
 
     def get_timestamp(self):
         struct_time = time.localtime()
@@ -294,8 +318,9 @@ class Transaction:
             if arg.public_key == wallet.public_key:
                 print(f"addr verified: {arg, wallet.public_key}\n")
                 return True
-        else:
-            return False
+            else:
+                print(f"addr does not exist: {arg}\n")
+                return False
 
     def valid_recipient(self, arg):
         for wallet in walletpool.walletpool:
@@ -303,27 +328,30 @@ class Transaction:
                 print(f"addr verified: {arg, wallet.public_key}\n")
                 return True
             else:
-                print(f"addr does not exist: {arg}")
+                print(f"addr does not exist: {arg}\n")
                 return False
 
     def valid_amount(self, sender):
         true_amt = sender.get_balance(public_key=sender.public_key)
-        check = true_amt - self.amount
+        print(f"{true_amt, self.amount}\n")
+        check = int(true_amt) - int(self.amount)
         if check > 0:
-            print(true_amt, check)
+            print(f"{true_amt, check}\n")
             return check
         else:
             return False, print(f"{sender} does not have enough funds to transact\n")
 
-    def execute(self, sender, amount, recpient):
-        sender.balance -= amount
-        recpient.balance += amount
+    def execute(self, sender, amount, recipient):
+        sender.balance -= int(amount)
+        for wallet in walletpool.walletpool:
+            if recipient == wallet.public_key:
+                wallet.balance += int(amount)
 
     def __str__(self) -> str:
-        return f"{self.sender.public_key} {self.amount} {self.recipient} {self.cd}"
+        return f"{self.sender.public_key} {self.amount} {self.recipient} {self.cd}\n"
 
     def __repr__(self) -> str:
-        return f"{self.sender.public_key} {self.amount} {self.recipient.public_key} {self.cd}"
+        return f"{self.sender.public_key} {self.amount} {self.recipient} {self.cd}\n"
 
 
 class Container:
@@ -345,7 +373,7 @@ class Container:
     def check_valid_owner(self, owner):
         for wallet in walletpool.walletpool:
             if wallet.public_key == owner:
-                print(f"owner is valid")
+                print(f"owner is valid\n")
                 return True
             else:
                 return False
@@ -432,26 +460,34 @@ class Server:
                         print(f"New wallet:{wallet, type(wallet)}\n")
                         if wallet not in walletpool.walletpool:
                             walletpool.add(wallet)
+                            txpool.add(wallet)
 
                 # signifies block chain update
                 elif info == "bcu":
                     if caddr not in clients.clients:
                         clients.clients.append(caddr)
-                        print(f"Block received from new node")
+                        print(f"Block received from new node\n")
 
                     block = data_depickled
                     if isinstance(block, Block):
-                        print(f"New block:{block, type(block)}\n")
+                        print(f"New block:{block}\n")
+                        print(f"From miner:{block.address}\n")
                         if block not in blockpool.blockpool:
-                            blockpool.add(block)
+                            print(f"checking clients block\n")
+                            tempchain = Blockchain()
+                            previousblock = blockchain.chain[-1]
+                            tempchain.add(previousblock)
+                            propagatedblock = tempchain.mine(data_depickled)
+                            print(f"Adding clients block to pool\n")
+                            blockpool.add(propagatedblock)
+                            return
 
                             # add arg to bc mine function
 
                 elif info == "NEWNODE":
-                    print(f"New node has joined the network {caddr}")
-
+                    print(f"New node has joined the network {caddr}\n")
                     if isinstance(data_depickled, Blockchain):
-                        print(f"{caddr} is requesting the BC")
+                        print(f"{caddr} is requesting the BC\n")
                         threading.Thread(
                             target=propagatefunctions.prop_blockchain,
                             args=(clientsocket, caddr),
@@ -459,7 +495,7 @@ class Server:
                         ).start()
 
                     if isinstance(data_depickled, WalletPool):
-                        print(f"{caddr} is requesting the WP")
+                        print(f"{caddr} is requesting the WP\n")
                         threading.Thread(
                             target=propagatefunctions.prop_walletpool,
                             args=(clientsocket, caddr),
@@ -467,7 +503,7 @@ class Server:
                         ).start()
 
                     if isinstance(data_depickled, TransactionPool):
-                        print(f"{caddr} is requesting the TXP")
+                        print(f"{caddr} is requesting the TXP\n")
                         threading.Thread(
                             target=propagatefunctions.prop_txpool,
                             args=(clientsocket, caddr),
@@ -475,12 +511,15 @@ class Server:
                         ).start()
 
                     if isinstance(data_depickled, Clients):
-                        print(f"{caddr} is requesting the CP")
+                        print(f"{caddr} is requesting the CP\n")
                         threading.Thread(
                             target=propagatefunctions.prop_clients,
                             args=(clientsocket, caddr),
                             daemon=True,
                         ).start()
+                        if caddr not in clients.clients:
+                            clients.add(caddr)
+                    return
 
                 else:
                     None
@@ -490,25 +529,6 @@ class Server:
 
             # old architecture, execute data from pickle loads
             # signifies new tx update
-
-    def prop_bc(self, clientsocket, addr):
-        try:
-            info, ip, port = data.split(" ")
-            node = str(ip), int(port)
-            if node not in clients.clients:
-                node != server.main_addr
-                clients.add_clients(node)
-                print(f"DATA:{node}")
-
-            # intitiate bc migration to new node
-
-            clientsocket.sendall(f"{str(blockchain.chain.__sizeof__())}")
-            data = clientsocket.recv(1024).decode("ascii")
-            if data == "AKK":
-                clientsocket.sendall(f"{blockchain.chain}".encode("ascii"))
-                return
-        except ValueError:
-            connected = False
 
 
 class Client:
@@ -570,15 +590,15 @@ class MessageFunctions:
             pickled_msg = pickle.dumps((info, msg, server.main_addr))
 
         for client in clients.clients:
-            if client != server.main_addr:
-                try:
-                    bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    bcsock.bind(("localhost", 0))
-                    bcsock.connect(client)
-                    bcsock.sendall(pickled_msg)
-                    bcsock.close()
-                except ConnectionRefusedError as e:
-                    clients.clients.remove(client)
+            client != server.main_addr
+            try:
+                bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                bcsock.bind(("localhost", 0))
+                bcsock.connect(client)
+                bcsock.sendall(pickled_msg)
+                bcsock.close()
+            except ConnectionRefusedError as e:
+                clients.clients.remove(client)
 
     def rdv_msg(self, args):
         csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -595,7 +615,8 @@ class MessageFunctions:
                 if node not in clients.clients:
                     node != server.main_addr
                     clients.add_clients(node)
-                    print(f"NODE:{node}")
+                    print(f"NODE:{node}\n")
+                    print("-" * 20)
             except ValueError:
                 connected = False
         csock.close()
@@ -616,7 +637,7 @@ class MessageFunctions:
                 # true migration
                 try:
                     response = bcsock.recv(HEADER).decode()
-                    print(f"bc_sync rep:", response)
+                    print(f"bc_sync rep: {response}\n")
 
                 except:
                     bcsock.close()
@@ -626,9 +647,9 @@ class MessageFunctions:
 class PropagateFunctions:
     # propagate functions help in set up
     def request_prop(self, info, msg):
-        pickled_msg = pickle.dumps((info, msg, server.main_addr))
         client_ = random.choice(clients.clients)
-        print(f"{client_}")
+        pickled_msg = pickle.dumps((info, msg, server.main_addr))
+        print(f"{client_}\n")
         bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         bcsock.bind(("localhost", 0))
         bcsock.connect(client_)
@@ -637,64 +658,76 @@ class PropagateFunctions:
             data = bcsock.recv(HEADER)
             object_, depickled = pickle.loads(data)
             try:
-                print(object_)
-                print(depickled)
+                print(f"OBJECT: {object_}\n")
+                print(f"{depickled}\n")
 
                 if object_ == Blockchain:
                     for block in depickled:
-                        print(f"adding blocks to chain")
+                        print(f"adding blocks to chain\n")
                         if block not in blockchain.chain:
                             blockchain.add(block)
                     break
 
                 if object_ == WalletPool:
+                    if depickled is None:
+                        print(f"No wallets to propagate\n")
                     for wallet in depickled:
-                        print(f"adding wallets to pool")
+                        print(f"adding wallets to pool\n")
                         if wallet not in walletpool.walletpool:
                             walletpool.add(wallet)
                     break
 
                 if object_ == TransactionPool:
+                    if depickled is None:
+                        print(f"No trasnactions to propagate\n")
                     for tx in depickled:
-                        print(f"adding transactions to pool")
+                        print(f"adding transactions to pool\n")
                         if tx not in txpool.tx_pool:
                             txpool.add(tx)
                     break
 
                 if object_ == Clients:
+                    if depickled is None:
+                        print(f"No clients to propagate\n")
                     for client in depickled:
-                        print(f"adding clients to pool")
+                        print(f"adding clients to pool\n")
                         if client not in clients.clients:
                             clients.add(client)
                     break
                 else:
-                    print(f"this is a foreign object")
+                    print(f"this is a foreign object\n")
 
                 break
 
             except:
-                print(f"Failed...")
+                print(f"Failed...\n")
                 None
                 break
 
     def prop_blockchain(self, clientsocket, addr):
-        bcpickled = pickle.dumps((Blockchain, blockchain.chain))
-        print(f"propagating bc to new node")
+        with globallock:
+            bccopy = copy.deepcopy(blockchain.chain)
+        bcpickled = pickle.dumps((Blockchain, bccopy))
+        print(f"propagating bc to new node\n")
         clientsocket.sendall(bcpickled)
 
     def prop_walletpool(self, clientsocket, addr):
-        wppickled = pickle.dumps((WalletPool, walletpool))
-        print(f"propagating WalletPool to new node")
+        with globallock:
+            wpcopy = copy.deepcopy(walletpool.walletpool)
+        wppickled = pickle.dumps((WalletPool, wpcopy))
+        print(f"propagating WalletPool to new node\n")
         clientsocket.sendall(wppickled)
 
     def prop_txpool(self, clientsocket, addr):
-        twpickled = pickle.dumps((TransactionPool, txpool))
-        print(f"propagating txpool to new node")
+        with globallock:
+            twcopy = copy.deepcopy(txpool.tx_pool)
+        twpickled = pickle.dumps((TransactionPool, twcopy))
+        print(f"propagating txpool to new node\n")
         clientsocket.sendall(twpickled)
 
     def prop_clients(self, clientsocket, addr):
-        pcpickcled = pickle.dumps((Clients, clients))
-        print(f"propagating nodes to new node")
+        pcpickcled = pickle.dumps((Clients, clients.clients))
+        print(f"propagating nodes to new node\n")
         clientsocket.sendall(pcpickcled)
 
 
@@ -707,8 +740,16 @@ class BCGUI:
         self.msgbox = "Error"
         self.mining = True
         self.inputvar = tk.StringVar()
-        self.root.geometry("1000x500")
+        self.root.geometry("800x500")
         self.root.title("BC GUI")
+        self.stats = tk.Frame(self.root)
+        self.bclabel1 = tk.Label(
+            self.stats, text=f"Active nodes: {len(clients.clients)}"
+        ).grid(row=0, column=0)
+        self.bclabel2 = tk.Label(
+            self.stats, text=f"Active block number: {len(blockchain.chain)}"
+        ).grid(row=0, column=1)
+        self.stats.pack()
 
         #### set up buttons for screen
         # create wallet button with option to link to mining
@@ -720,43 +761,8 @@ class BCGUI:
         # start node button, should go through check list before mining to do propagations and such
         self.nbutton = tk.Button(self.root, command=self.set_up_node, text="Start node")
         self.nbutton.pack()
-
-        # create transaction in frame
-        self.txbox = tk.Frame(self.root, bd=5)
-
-        self.recipientbx = tk.Frame(self.txbox)
-        self.recipiententry = tk.Entry(self.recipientbx, textvariable=str)
-        self.recipiententry.pack(side="right")
-        self.recipientlb = tk.Label(self.recipientbx, text="Enter recipient address")
-        self.recipientlb.pack(side="left")
-        self.recipientbx.pack()
-
-        self.amtbx = tk.Frame(self.txbox)
-        self.amountentry = tk.Entry(self.amtbx, textvariable=str)
-        self.amountentry.pack(side="right")
-        self.amountlb = tk.Label(self.amtbx, text="Enter amount to send")
-        self.amountlb.pack(side="left")
-        self.amtbx.pack()
-
-        self.txsend = tk.Button(
-            self.txbox,
-            command=self.buildtx,
-            text="Send transaction",
-        )
-        self.txsend.pack(side="bottom")
-        self.txbox.pack()
-
-        # add container to tx button, container must have a file upload box
-
         self.root.mainloop()
-
-    def buildtx(self):
-        sender = wallet_
-        amount = self.amountentry.get() or 0
-        recipient = self.recipiententry.get()
-        tx = Transaction(sender, amount, recipient)
-        print(tx)
-        """self.bcmsg("tx", tx)"""
+        # add container to tx button, container must have a file upload box
 
     def create_wallet(self):
         global wallet_
@@ -769,11 +775,10 @@ class BCGUI:
         )
         walletpool.add(wallet_)
         self.wbutton.config(text="Open wallet", command=self.wallet)
-        self.root.mainloop()
 
     def wallet(self):
         self.wallettop = tk.Toplevel()
-        print(f"wallet addr {wallet_.public_key}")
+        print(f"wallet addr {wallet_.public_key}\n")
         self.wallettop.geometry("350x500")
         self.logout = tk.Button(
             self.wallettop, command=self.logout_wallet, text="Logout"
@@ -791,12 +796,41 @@ class BCGUI:
         )
         self.publickey.pack()
 
-        self.wallettop.mainloop()
+        # create transaction in frame
+        self.txbox = tk.Frame(self.wallettop, bd=5)
+        self.recipientbx = tk.Frame(self.txbox)
+        self.recipiententry = tk.Entry(self.recipientbx, textvariable=str)
+        self.recipiententry.pack(side="right")
+        self.recipientlb = tk.Label(self.recipientbx, text="Enter recipient address")
+        self.recipientlb.pack(side="left")
+        self.recipientbx.pack()
+
+        self.amtbx = tk.Frame(self.txbox)
+        self.amountentry = tk.Entry(self.amtbx, textvariable=int)
+        self.amountentry.pack(side="right")
+        self.amountlb = tk.Label(self.amtbx, text="Enter amount to send")
+        self.amountlb.pack(side="left")
+        self.amtbx.pack()
+
+        self.txsend = tk.Button(
+            self.txbox,
+            command=self.buildtx,
+            text="Send transaction",
+        )
+        self.txsend.pack(side="bottom")
+        self.txbox.pack()
 
     def logout_wallet(self):
         self.wallettop.destroy()
         self.wbutton.config(command=self.create_wallet, text="Create a wallet.")
-        self.root.mainloop()
+
+    def buildtx(self):
+        sender = wallet_
+        amount = self.amountentry.get()
+        recipient = self.recipiententry.get()
+        tx = Transaction(sender, amount, recipient)
+        print(f"{tx}\n")
+        self.bcmsg("tx", tx)
 
     def set_up_node(self):
         self.setupnode = tk.Toplevel(self.root)
@@ -806,7 +840,6 @@ class BCGUI:
         elif wallet_:
             sthread.start()
             clients.add(server.main_addr)
-
             self.connect = tk.Button(
                 self.setupnode, command=cthread.start, text="connect to network"
             )
@@ -822,8 +855,6 @@ class BCGUI:
             self.mine_.pack()
             self.start.pack()
 
-        self.root.mainloop()
-
     def node_settings(self):
         self.nodesettings = tk.Toplevel(self.root)
         self.stop_node = tk.Button(
@@ -834,34 +865,34 @@ class BCGUI:
 
     def stopnode(self):
         self.nodesettings.destroy()
-        self.minig = False
+        self.mining = False
         self.nbutton.config(command=self.set_up_node, text="Start node")
-        self.root.mainloop()
 
     def startprop(self):
         self.bcgthread = threading.Thread(target=self.bcprop, daemon=True).start()
-        self.root.mainloop()
 
     def bcprop(self):
+        propagatefunctions.request_prop("NEWNODE", clients)
         propagatefunctions.request_prop("NEWNODE", blockchain)
         propagatefunctions.request_prop("NEWNODE", walletpool)
-        propagatefunctions.request_prop("NEWNODE", clients)
         propagatefunctions.request_prop("NEWNODE", txpool)
 
     def start_mining(self):
-        self.m = threading.Thread(target=self.guimine).start()
+        messagefunctions.bc_interact("pkr", wallet_)
+        mainthread.start()
         self.setupnode.destroy()
         self.nbutton.config(command=self.node_settings, text="Node settings")
-        self.root.mainloop()
-
-    def guimine(self):
-        while self.mining:
-            block = Block(number=(len(blockchain.chain)), address=wallet_)
-            blockchain.mine(block=block)
 
     def bcmsg(self, info, msg):
         messagefunctions.bc_interact(info=info, msg=msg)
-        self.root.mainloop()
+
+
+def scriptmain():
+    while True:
+        block = Block(number=(len(blockchain.chain)), address=wallet_)
+        minedblock = blockchain.mine(block=block)
+        messagefunctions.broadcast_to_clients("bcu", minedblock)
+        blockpool.add(minedblock)
 
 
 blockchain = Blockchain()
@@ -879,5 +910,6 @@ client = Client("localhost", 0)
 
 sthread = threading.Thread(target=server.server)
 cthread = threading.Thread(target=client.client, daemon=True)
+mainthread = threading.Thread(target=scriptmain, daemon=True)
 
-BCGUI()
+bcgui = BCGUI()

@@ -7,3 +7,14 @@ BlockPool: Does not need to be propagated, BlockPool resets each block
 WalletPool: Holds all wallet addresses, should be propagated
 TransactionPool: defs propagate tx's
 Coinbase: Calc to find supply? or just propagate?
+    def isValid(self, block):
+        try:
+            previousblock = self.chain[-1]
+        except IndexError:
+            return True
+
+        if block.previous == previousblock.get_hash():
+            return True
+
+        else:
+            return False

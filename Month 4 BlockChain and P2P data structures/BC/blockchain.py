@@ -122,6 +122,7 @@ class Block:
 
 class Blockchain:
     difficulty = 6
+    isvalid = True
 
     def __init__(self, chain=[]):
         self.chain = chain
@@ -144,22 +145,22 @@ class Blockchain:
                 print(f"{time_difference_minutes}\n")
                 if time_difference_minutes < float(3):
                     self.difficulty += 0  # change to 1
-                    print(f"increase diff: {self.difficulty}\n")
+                    print(f"mined: {block}\n")
                     return block
 
                 elif time_difference_minutes > float(5):
                     self.difficulty -= 0
-                    print(f"decrease diff: {self.difficulty}\n")
+                    print(f"mined: {block}\n")
                     return block
 
                 elif time_difference_minutes > float(7):
                     self.difficulty -= 0
-                    print(f"decrease diff: {self.difficulty}\n")
+                    print(f"mined: {block}\n")
                     return block
 
                 else:
                     self.difficulty -= 0
-                    print(f"decrease diff: {self.difficulty}\n")
+                    print(f"mined: {block}\n")
                     return block
 
             else:
@@ -170,6 +171,12 @@ class Blockchain:
             return True
         else:
             previous_block = self.chain[-1]
+            # Check if the block's timestamp is reasonable (within a certain range of current time)
+            current_time = time.time()
+            time_difference = abs(current_time - block.timestamp)
+            max_time_difference = (
+                600  # Maximum allowed time difference in seconds (adjust as needed)
+            )
             # Check if the previous hash matches the hash of the previous block
             if block.previous != previous_block.get_hash():
                 return False
@@ -178,46 +185,38 @@ class Blockchain:
             if block.number != blockchain.chain[-1].number + 1:
                 return False
 
-            # Check if the block's timestamp is reasonable (within a certain range of current time)
-            current_time = time.time()
-            time_difference = abs(current_time - block.timestamp)
-            max_time_difference = (
-                600  # Maximum allowed time difference in seconds (adjust as needed)
-            )
             if time_difference > max_time_difference:
                 return False
+
+            else:
+                return True
 
     def add(self, block):
         with globallock:
             self.chain.append(block)
-            return
+            print(f"Block minted: {block}\n")
 
 
 class BlockPool:
-    def __init__(self, blockpool=[], ownblock=[]):
+    def __init__(self, blockpool=[]):
         self.blockpool = blockpool
-        self.ownblock = ownblock
 
     def add(self, block):
         with globallock:
             self.blockpool.append(block)
-        while True:
             print(f"blockpool size:{len(self.blockpool)}\n")
             print(f"clients list size:{len(clients.clients)}:\n")
-            if len(self.blockpool) == (len(clients.clients)):
-                self.validation()
-                break
 
     def validation(self):
-        max_timestamp = max(self.blockpool, key=lambda b: float(b.nonce))
-        if blockchain.is_valid(max_timestamp):
-            blockchain.add(max_timestamp)
-            coinbase.reward_miner(max_timestamp)
-            self.blockpool.clear()
-            self.ownblock.clear()
-            print(f"Block minted: {max_timestamp}\n")
-        else:
-            print(f"Block has been flagged {max_timestamp}\n")
+        if len(blockpool.blockpool) == (len(clients.clients)):
+            max_timestamp = max(self.blockpool, key=lambda b: float(b.nonce))
+            if blockchain.is_valid(max_timestamp):
+                blockchain.add(max_timestamp)
+                coinbase.reward_miner(max_timestamp)
+                self.blockpool.clear()
+                return
+            else:
+                print(f"Block has been flagged {max_timestamp}\n")
 
 
 class Clients:
@@ -445,6 +444,7 @@ class Server:
                         print(f"New transaction:{transaction, type(transaction)}\n")
                         if transaction not in txpool.tx_pool:
                             txpool.add(transaction)
+                            break
 
                 elif info == "ct":
                     contract = data_depickled
@@ -452,6 +452,7 @@ class Server:
                         print(f"New container:{contract, type(contract)}\n")
                         if contract not in txpool.tx_pool:
                             txpool.add(contract)
+                            break
 
                 # new public key registration
                 elif info == "pkr":
@@ -461,74 +462,71 @@ class Server:
                         if wallet not in walletpool.walletpool:
                             walletpool.add(wallet)
                             txpool.add(wallet)
+                            break
 
                 # signifies block chain update
                 elif info == "bcu":
                     if caddr not in clients.clients:
                         clients.clients.append(caddr)
-                        print(f"Block received from new node\n")
 
-                    block = data_depickled
-                    if isinstance(block, Block):
-                        print(f"New block:{block}\n")
-                        print(f"From miner:{block.address}\n")
-                        if block not in blockpool.blockpool:
-                            print(f"checking clients block\n")
-                            tempchain = Blockchain()
-                            previousblock = blockchain.chain[-1]
-                            tempchain.add(previousblock)
-                            propagatedblock = tempchain.mine(data_depickled)
-                            print(f"Adding clients block to pool\n")
-                            blockpool.add(propagatedblock)
-                            return
-
+                    if isinstance(data_depickled, Block):
+                        print(f"block from miner:{data_depickled.address}\n")
+                        if data_depickled not in blockpool.blockpool:
+                            print(f"Adding clients block to pool: {data_depickled}\n")
+                            blockpool.add(data_depickled)
+                            blockpool.validation()
                             # add arg to bc mine function
+                            break
 
                 elif info == "NEWNODE":
                     print(f"New node has joined the network {caddr}\n")
+                    if caddr not in clients.clients:
+                        clients.add(caddr)
+                        continue
                     if isinstance(data_depickled, Blockchain):
                         print(f"{caddr} is requesting the BC\n")
-                        threading.Thread(
+                        propthread1 = threading.Thread(
                             target=propagatefunctions.prop_blockchain,
                             args=(clientsocket, caddr),
                             daemon=True,
-                        ).start()
+                        )
+                        propthread1.start()
 
                     if isinstance(data_depickled, WalletPool):
                         print(f"{caddr} is requesting the WP\n")
-                        threading.Thread(
+                        propthread2 = threading.Thread(
                             target=propagatefunctions.prop_walletpool,
                             args=(clientsocket, caddr),
                             daemon=True,
-                        ).start()
+                        )
+                        propthread2.start()
 
                     if isinstance(data_depickled, TransactionPool):
                         print(f"{caddr} is requesting the TXP\n")
-                        threading.Thread(
+                        propthread3 = threading.Thread(
                             target=propagatefunctions.prop_txpool,
                             args=(clientsocket, caddr),
                             daemon=True,
-                        ).start()
+                        )
+                        propthread3.start()
 
                     if isinstance(data_depickled, Clients):
                         print(f"{caddr} is requesting the CP\n")
-                        threading.Thread(
+                        propthread4 = threading.Thread(
                             target=propagatefunctions.prop_clients,
                             args=(clientsocket, caddr),
                             daemon=True,
-                        ).start()
+                        )
+                        propthread4.start()
                         if caddr not in clients.clients:
                             clients.add(caddr)
-                    return
+                    break
 
                 else:
                     None
 
             except EOFError:
                 None
-
-            # old architecture, execute data from pickle loads
-            # signifies new tx update
 
 
 class Client:
@@ -572,6 +570,8 @@ class Client:
                 connected = False
                 csock.close()
                 break
+            connected = False
+            break
 
 
 class MessageFunctions:
@@ -584,21 +584,18 @@ class MessageFunctions:
             bcsock.connect(client)
             bcsock.send(pickled_msg)
             bcsock.close()
+        return
 
     def broadcast_to_clients(self, info, msg):
-        with globallock:
-            pickled_msg = pickle.dumps((info, msg, server.main_addr))
-
+        pickled_msg = pickle.dumps((info, msg, server.main_addr))
         for client in clients.clients:
-            client != server.main_addr
-            try:
+            if client != server.main_addr:
                 bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 bcsock.bind(("localhost", 0))
                 bcsock.connect(client)
-                bcsock.sendall(pickled_msg)
+                bcsock.send(pickled_msg)
                 bcsock.close()
-            except ConnectionRefusedError as e:
-                clients.clients.remove(client)
+        return
 
     def rdv_msg(self, args):
         csock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -620,6 +617,7 @@ class MessageFunctions:
             except ValueError:
                 connected = False
         csock.close()
+        return
 
     def bc_sync():
         for node in clients.clients:
@@ -648,87 +646,86 @@ class PropagateFunctions:
     # propagate functions help in set up
     def request_prop(self, info, msg):
         client_ = random.choice(clients.clients)
-        pickled_msg = pickle.dumps((info, msg, server.main_addr))
-        print(f"{client_}\n")
-        bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        bcsock.bind(("localhost", 0))
-        bcsock.connect(client_)
-        bcsock.send(pickled_msg)
-        while True:
-            data = bcsock.recv(HEADER)
-            object_, depickled = pickle.loads(data)
-            try:
-                print(f"OBJECT: {object_}\n")
-                print(f"{depickled}\n")
+        if client_ != server.main_addr:
+            pickled_msg = pickle.dumps((info, msg, server.main_addr))
+            print(f"{client_}\n")
+            bcsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            bcsock.bind(("localhost", 0))
+            bcsock.connect(client_)
+            bcsock.send(pickled_msg)
+            while True:
+                data = bcsock.recv(HEADER)
+                object_, depickled = pickle.loads(data)
+                try:
+                    print(f"OBJECT: {object_}\n")
+                    print(f"{depickled}\n")
 
-                if object_ == Blockchain:
-                    for block in depickled:
-                        print(f"adding blocks to chain\n")
-                        if block not in blockchain.chain:
-                            blockchain.add(block)
+                    if object_ == Blockchain:
+                        for block in depickled:
+                            print(f"adding blocks to chain\n")
+                            if block not in blockchain.chain:
+                                blockchain.add(block)
+                        break
+
+                    if object_ == WalletPool:
+                        if depickled is None:
+                            print(f"No wallets to propagate\n")
+                        for wallet in depickled:
+                            print(f"adding wallets to pool\n")
+                            if wallet not in walletpool.walletpool:
+                                walletpool.add(wallet)
+                        break
+
+                    if object_ == TransactionPool:
+                        if depickled is None:
+                            print(f"No trasnactions to propagate\n")
+                        for tx in depickled:
+                            print(f"adding transactions to pool\n")
+                            if tx not in txpool.tx_pool:
+                                txpool.add(tx)
+                        break
+
+                    if object_ == Clients:
+                        if depickled is None:
+                            print(f"No clients to propagate\n")
+                        for client in depickled:
+                            print(f"adding clients to pool\n")
+                            if client not in clients.clients:
+                                clients.add(client)
+                        break
+                    else:
+                        print(f"this is a foreign object\n")
+
                     break
 
-                if object_ == WalletPool:
-                    if depickled is None:
-                        print(f"No wallets to propagate\n")
-                    for wallet in depickled:
-                        print(f"adding wallets to pool\n")
-                        if wallet not in walletpool.walletpool:
-                            walletpool.add(wallet)
+                except:
+                    print(f"Failed...\n")
+                    None
                     break
-
-                if object_ == TransactionPool:
-                    if depickled is None:
-                        print(f"No trasnactions to propagate\n")
-                    for tx in depickled:
-                        print(f"adding transactions to pool\n")
-                        if tx not in txpool.tx_pool:
-                            txpool.add(tx)
-                    break
-
-                if object_ == Clients:
-                    if depickled is None:
-                        print(f"No clients to propagate\n")
-                    for client in depickled:
-                        print(f"adding clients to pool\n")
-                        if client not in clients.clients:
-                            clients.add(client)
-                    break
-                else:
-                    print(f"this is a foreign object\n")
-
-                break
-
-            except:
-                print(f"Failed...\n")
-                None
-                break
 
     def prop_blockchain(self, clientsocket, addr):
-        with globallock:
-            bccopy = copy.deepcopy(blockchain.chain)
-        bcpickled = pickle.dumps((Blockchain, bccopy))
+        bcpickled = pickle.dumps((Blockchain, blockchain.chain))
         print(f"propagating bc to new node\n")
         clientsocket.sendall(bcpickled)
+        return
 
     def prop_walletpool(self, clientsocket, addr):
-        with globallock:
-            wpcopy = copy.deepcopy(walletpool.walletpool)
-        wppickled = pickle.dumps((WalletPool, wpcopy))
+        wppickled = pickle.dumps((WalletPool, walletpool.walletpool))
         print(f"propagating WalletPool to new node\n")
         clientsocket.sendall(wppickled)
+        return
 
     def prop_txpool(self, clientsocket, addr):
-        with globallock:
-            twcopy = copy.deepcopy(txpool.tx_pool)
-        twpickled = pickle.dumps((TransactionPool, twcopy))
+        twpickled = pickle.dumps((TransactionPool, txpool.tx_pool))
         print(f"propagating txpool to new node\n")
         clientsocket.sendall(twpickled)
+        return
 
     def prop_clients(self, clientsocket, addr):
         pcpickcled = pickle.dumps((Clients, clients.clients))
         print(f"propagating nodes to new node\n")
         clientsocket.sendall(pcpickcled)
+        return
 
 
 class BCGUI:
@@ -775,6 +772,7 @@ class BCGUI:
         )
         walletpool.add(wallet_)
         self.wbutton.config(text="Open wallet", command=self.wallet)
+        self.root.mainloop()
 
     def wallet(self):
         self.wallettop = tk.Toplevel()
@@ -819,6 +817,7 @@ class BCGUI:
         )
         self.txsend.pack(side="bottom")
         self.txbox.pack()
+        self.root.mainloop()
 
     def logout_wallet(self):
         self.wallettop.destroy()
@@ -844,7 +843,6 @@ class BCGUI:
                 self.setupnode, command=cthread.start, text="connect to network"
             )
             self.connect.pack()
-
             self.start = tk.Button(
                 self.setupnode, command=self.startprop, text="Start propagation"
             )
@@ -860,8 +858,11 @@ class BCGUI:
         self.stop_node = tk.Button(
             self.nodesettings, command=self.stopnode, text="Stop node"
         )
+        self.start = tk.Button(
+            self.setupnode, command=self.startprop, text="Start propagation"
+        )
+        self.start.pack()
         self.stop_node.pack()
-        self.nodesettings.mainloop()
 
     def stopnode(self):
         self.nodesettings.destroy()
@@ -869,13 +870,15 @@ class BCGUI:
         self.nbutton.config(command=self.set_up_node, text="Start node")
 
     def startprop(self):
-        self.bcgthread = threading.Thread(target=self.bcprop, daemon=True).start()
+        self.bcgthread = threading.Thread(target=self.bcprop, daemon=True)
+        self.bcgthread.start()
 
     def bcprop(self):
         propagatefunctions.request_prop("NEWNODE", clients)
         propagatefunctions.request_prop("NEWNODE", blockchain)
         propagatefunctions.request_prop("NEWNODE", walletpool)
         propagatefunctions.request_prop("NEWNODE", txpool)
+        return
 
     def start_mining(self):
         messagefunctions.bc_interact("pkr", wallet_)
@@ -891,8 +894,9 @@ def scriptmain():
     while True:
         block = Block(number=(len(blockchain.chain)), address=wallet_)
         minedblock = blockchain.mine(block=block)
-        messagefunctions.broadcast_to_clients("bcu", minedblock)
         blockpool.add(minedblock)
+        messagefunctions.broadcast_to_clients("bcu", minedblock)
+        blockpool.validation()
 
 
 blockchain = Blockchain()
@@ -910,6 +914,7 @@ client = Client("localhost", 0)
 
 sthread = threading.Thread(target=server.server)
 cthread = threading.Thread(target=client.client, daemon=True)
-mainthread = threading.Thread(target=scriptmain, daemon=True)
+mainthread = threading.Thread(target=scriptmain)
 
-bcgui = BCGUI()
+if __name__ == "__main__":
+    bcgui = BCGUI()

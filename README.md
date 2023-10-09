@@ -1,4 +1,4 @@
-# Py_P2P_journey
+# Py-P2P-journey
 A python web3 developers journey
 
 Month 1:
